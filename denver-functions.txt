@@ -1,0 +1,196 @@
+===================> Hardcode Mods: The ANDBINARY function <===================
+This is a new hardcode function.
+          Usage: ANDBINARY(<value1>,<value2>[,<value3>,...])
+      Arguments: <valuen> is an integer value.
+        Returns: The bitwise AND result of all its parameters.
+-------------------------------------------------------------------------------
+
+=====================> Hardcode Mods: ANSI Function Fix <======================
+Normally, the ANSI function does not remember anything in the past. In other words, once you switch to a different ANSI value, the previous one is lost. However, this is counter-intuitive. You'd think that this:
+     [ansi(hg,green [ansi(hy,yellow)] green)]
+would produce this:
+     green yellow green
+Instead of:
+     green yellow green
+Well, now, it does. Please note that if you execute a lot of functions from within the ANSI call, it is possible that it may 'forget' where it is. This is an issue with TinyMUX that will just have to be coded around.
+-------------------------------------------------------------------------------
+
+=====================> Hardcode Mods: the ANYOF function <=====================
+ANYOF: Modified OR function
+Usage:      ANYOF(arg1,arg2,arg3,...,argn)
+Arguments:  argx - List of arguments to evaluate (up to 10).
+Returns:    If all arguments are zero or non-numeric, returns 0.
+            If any argument is less than zero, returns 0 regardless of
+               the other arguments.
+            If any argument is greater than zero, and no arguments are less
+               than zero, then returns 1.
+This function is a modified version of the built-in OR function. It functions exactly like OR, returning 1 if any argument is non-zero. However, it has an additional feature: if any argument is less than zero, then the whole function returns -1.
+-------------------------------------------------------------------------------
+
+====================> Hardcode Mods: Wildcard Attributes <=====================
+The hardcode now supports the use of 'Wildcard Attributes' via the @attribute command. Unlike other uses of @attribute, these changes do not survive a reboot and so need to be put into place after each restart by Player #1. (Hint: check out the +attribute command).
+A wildcard attribute enables you to basically say, "Any attribute matching this wildcard will receive these attributes". For example, on this MUX, any attribute beginning with ST. should receive the wizard and hidden flags. This includes even attributes that aren't in use yet (which @attribute won't let you do). So we do this:
+     @attribute/access ST.*=wizard hidden
+Now, any attribute created on the game will receive these attributes -- and non-wizards can't create them at all.
+@attribute now takes another switch: /setaccess. This works identically to @attribute/access except that it also goes through the existing database and sets any matching attributes that may already exist to the new flags. It should only need to be done when a new wildcard attribute is first being implemented.
+-------------------------------------------------------------------------------
+
+========================> Hard Code Mods: Boolean Fix <========================
+You know how 'help andbool' and 'help orbool' say that they stop evaluating after the first argument? Well, the way MUSH is distributed, they don't. This mod fixes that bug, so that now they correctly perform 'short-circuit' evaluation. In other words, they evaluate each argument in sequence, and if one of them 'completes' the test (i.e. is '0' for andbool or '1' for orbool, the remaining arguments are not evaluated.
+If you do want side-effect evaluation of items that are not 'needed' to decide on the test, please use 'or' or 'and'.
+-------------------------------------------------------------------------------
+
+=====================> Hardcode Mods: Bugging the Comsys <=====================
+This one adds a configurable object to contain a function called COMSYSHOOK that will be called with two arguments: %0 will be the name of the channel, and %1 will be the pose being done to the channel, pre-parsed. The object's dbref is specified in the config file with the comsys_bug config parameter. This functionality is used to provide the +last command to review channel output.
+-------------------------------------------------------------------------------
+
+===============================================================================
+This is a new hardcode function.
+    Usage: CRYPT(<string>,<salt>)
+Arguments: <string>  The string to encrypt
+           <salt>    The two-character salt to use to do the encryption.
+  Returns: The encrypted string.
+This function is basically a link to the underlying 'crypt' function within Unix. It's used by the +setwebpass system to create an encrypted password for the web page.
+-------------------------------------------------------------------------------
+
+=========================> Hardcode Mods: @Decompile <=========================
+The @DECOMPILE command now takes the /DB switch, like PennMUSH. If this switch is specified, then the output of @decompile will reference the DBref of the object, not its name. In addition, no command will be output to attempt to create the object.
+-------------------------------------------------------------------------------
+
+===================> Hardcode Mods: The ELOCKSTR Function <====================
+This is a new hardcode function.
+          Usage: ELOCKSTR(<object>,<victim>,<string>)
+      Arguments: <object> is the dbref of the locked object.
+                 <victim> is the dbref of what is trying to pass the lock
+                 <string> is the text of the lock itself.
+        Returns: 1 if the object passes the lock, 0 if not.
+This function is similar to the standard built-in function ELOCK, except that instead of only working with the 'standard' @locks, it allows you to specify an arbitrary string which will be evaluated as if it were a lock. You must control <object>.
+-------------------------------------------------------------------------------
+
+===============================================================================
+New hardcode functions...
+          Usage: INVOKCTR()
+      Arguments: None
+        Returns: The current function invokcation counter.
+          Usage: RECURCTR()
+      Arguments: None
+        Returns: The current function recursion counter.
+These are two simple little functions. The first returns the function invocation counter -- that is, the number of functions that have been called in the current expression. The MUX function invocation limit is 100,000. If you exceed this number, an error occurs. This function is also useful for evaluating different methods of calling things, and determining which is most efficient.
+The second function shows the function recursion counter -- how many levels deep functions have been 'nested' (mostly u-functions and the like). This is useful in recursive functions to stop recursion before potentially encountering a more serious error.
+-------------------------------------------------------------------------------
+
+===============================================================================
+This is a new hardcode function.
+          Usage: ITERSQ(<list>,<expression>[,<input delim>)
+      Arguments: <list> is <input delim>-separated list of items.
+                 <expression> is code to execute for each item
+        Returns: Output from each expression with no delimiter.
+This function works identically to the iter function, except that no output delimiter is placed into the output. Instead, the output of each expression is simply concatenated together.
+-------------------------------------------------------------------------------
+
+==================> Hardcode Mods: The LATTRLIMIT Function <===================
+This is a new hardcode function.
+    Usage: LATTRLIMIT(<object>[/<wildcard>],<start>,[<max>])
+Arguments: <object>    The object on which to list attributes.
+           <wildcard>  Optional wildcard of attributes to list.
+           <start>     The first attribute number to list (0=first)
+           <max>       Maximum number of attributes to list (0=no limit)
+  Returns: List of matching attributes on <object>.
+This function works similarly to the LATTR function provided standard as part of the MUSH. However, where LATTR always lists all attributes that match the wildcard, this function permits you to list only a subset of those attributes -- specifically, you may start with the <start>th attribute and list at most <max> attributes. This is useful for situations where the list of attributes would otherwise overflow the 8K MUX string buffer (fairly easy to do when there are a lot of attributes). If max is not specified, or is zero, then all remaining attributes are listed.
+If you give 0 for the <start> argument and do not specify the <max> argument, then this function works identically to LATTR.
+-------------------------------------------------------------------------------
+
+=======================> Hardcode Mods: Mail Separator <=======================
+Isn't it annoying that @mail/forward doesn't put in a separator so you can tell what was written by the last person and what was appended? Well, this mod adds that functionality. Whee!
+-------------------------------------------------------------------------------
+
+====================> Hardcode Mods: Matchdelim Function <=====================
+This is a new hardcode-implemented function.
+          Usage: MATCHDELIM(<string>,<open>,<close>,<start>,<outdelim>)
+      Arguments: <string> is the string to evaluate.
+                 <open> is a list of 'starting' delimiters.
+                 <close> is a list of 'ending' delimiters.
+                 <start> is the character to start at (OPTIONAL)
+                 <outdelim> is the output delimiter to use (OPTIONAL).
+        Returns: Two values, separated by a space or <outdelim>, representing
+                 the delimiters found. If no delimiters found, then the first
+                 value will be #-1.
+This function is designed to search a string for pairs of delimiters, such as parentheses, brackets, braces, or other items. It will return only the outermost pair that it finds (defined by the first 'opening' delimiter it locates moving from left to right). It supports the use of % and \to 'escape' delimiters within the string. <open> and <close> are strings containing a list of delimiters to look for. They must be the same length as one another, because each character in <close> corresponds to the character in the same position in <open>.
+---------------> Continued in '+codehelp hardcode matchdelim2' <---------------
+
+================> Hardcode Mods: Globally Watching Movements <=================
+This hardcode mod creates the ability to set two new config-file entries: movehook_before and movehook_after. These are set to integers corresponding to the dbref of the object that contains the appropriate MOVEBEFOREHOOK or MOVEAFTERHOOK, respectively. These functions are called whenever a THING or PLAYER changes location (it's not called for exits, and makes no sense for rooms).
+The functions are called with the following arguments:
+     %0  OBJECT  Object that is moving.
+     %1  LOC1    Location moving from if MOVEBEFOREHOOK
+                 Location moving to if MOVEAFTERHOOK.
+     %2  LOC2    Location moving to if MOVEBEFOREHOOK
+                 Location moving from if MOVEAFTERHOOK.
+----------------> Continued in '+codehelp hardcode movehook2' <----------------
+
+=====================> Hardcode Mods: The OBJU Function <======================
+This is a new hardcode function.
+          Usage: OBJU(<enactor>,<object>/<attr>,...)
+      Arguments: <enactor> is the dbref of the object to evaluate as.
+                 <object> is the object that contains the attribute.
+                 <attr> is the attribute to evaluate on the object.
+                 Additional arguments are parameters to the called function.
+        Returns: The result of the called function.
+This function works a great deal like OBJEVAL called with a ULOCAL function inside it. There is one difference, however; OBJU fetches the attribute with the permissions of the caller of the OBJU function. Then, once the text of the function is loaded, it then evaluates it with the permissions of <enactor>. This gets around one of the problems with using OBJEVAL in one of its most useful modes: evaluating a player-supplied attribute without enhanced privileges.
+Hint: There is a player on SR Denver called Nobody. This player has *no* permissions whatsoever. He is set HALTED, GAGGED, SLAVE, and virtually everything else. It should be safe to use OBJU(num(*Nobody),...) to evaluate arbitrary strings.
+-------------------------------------------------------------------------------
+
+=======================> Hardcode Mods: Pemit/List Fix <=======================
+This isn't *technically* a bug-fix, but what it does is handles the problem that, in theory, the pemit_any config parameter is supposed to let anybody do a @pemit/list. Well, it does, but only for players. Objects, however, need this functionality -- especially the phone system. So, this makes it so any object that is able to pemit can pemit to multiple players and objects, instead of just one.
+-------------------------------------------------------------------------------
+
+====================> Hard Code Mods: The POSALL Function <====================
+This is a new hardcode function.
+       Usage: POSALL(<target>,<search>[,<start>])
+   Arguments: <target>  String in which to look for match.
+              <search>  String to look for.
+              <start>   Character pos to start at (0=first) (optional).
+     Returns: Indexes of all locations in <target> matching <search>.
+This function searches inside <target> for occurances of <search> and returns a list of all matching offsets. The offsets are zero-based (the first character in the string is 0, the second is 1, etc.). If no match is found, the function returns a blank string.
+-------------------------------------------------------------------------------
+
+====================> Hardcode Mods: The PROGRAM Function <====================
+This is a new hardcode function.
+     Usage: PROGRAM(<player>,<object>/<attribute>)
+ Arguments: <player>      Player to @program for.
+            <object>      Object on which @program attribute resides.
+            <attribute>   Attribute of @program.
+   Returns: Nothing.
+This function implements the @program command via a function, making it no longer necessary for programs to involve lots of @switches, etc. It works just like @program, providing all the same functionality.
+-------------------------------------------------------------------------------
+
+=====================> Hardcode Mods: MySQL RAM Leak Fix <=====================
+This is a simple one-line patch that fixes a RAM leak in the MySQL engine. Posted officially on SourceForge and added to 3.1pl2. It's been causing problems here so I added it.
+-------------------------------------------------------------------------------
+
+==============> Hardcode Mods: The STRSPN And STRNSPN Functions <==============
+This is a pair of new hardcode functions.
+    Usage: STRSPN(<match>,<string>[,<start>])
+           STRNSPN(<match>,<string>[,<start>])
+Arguments: <match>   String of characters to match.
+           <string>  String in which to look.
+           <start>   Character to start at (0=first) (optional).
+  Returns: Index of first character in <string> matching the search criteria,
+           or -1 if none was found.
+The first form of this function returns the index of the first character in <string> that is listed in <match>. The second form returns the index of the first character in <string> that is *NOT* listed in <match>. If <start> is specified, then the search begins at the character located in <string> at <start>. The functions return the zero-based index of the first matching (or non-matching) character in <string>, or -1 if no matching characters are found.
+These functions are useful for making sure a string consists only of valid characters. This function's matching *IS* case-specific; if you want to match without case-specificity, pass the second argument through UCSTR.
+-----------------> Continued in '+codehelp hardcode strspn2' <-----------------
+
+===================> Hardcode Mods: Modified Substitutions <===================
+TinyMUSH 3.0 represents a change from previous versions of TinyMUX in the use of %-substitutions for color. Previous versions used %c<code> to represent color changes. Now, it uses %x<code>. However, since we're porting some code from TinyMUX 1.6, I felt that being able to port that code cleanly was far more important than supporting the 'new' meaning of %c, which displays the text of the last command entered. Said substitution has been moved to %-.
+Also, another %-substitution has been added. %@ will refer to the most recent object to call a function with U, ULOCAL, OBJU, etc. This behavior is somewhat erratic and should not be relied on often.
+-------------------------------------------------------------------------------
+
+===================> Code Help: Hardcode Function: TELEXIT <===================
+This is a new hardcode function.
+    Usage: TELEXIT(<exit>,<loc>)
+Arguments: <exit>  is the dbref of the exit you want to move.
+           <loc>   is the location to which you want to move it.
+This command attempts to move an exit from its current location to <loc>. You must control both <exit> and <loc>. In addition, <loc> must be a room; you cannot teleport exits to players or to things.
+-------------------------------------------------------------------------------
+
