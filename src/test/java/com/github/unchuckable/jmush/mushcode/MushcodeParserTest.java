@@ -10,10 +10,10 @@ public class MushcodeParserTest {
   @Test
   public void testParser() {
     MushcodeParser parser = new MushcodeParser( Collections.emptyMap() );
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRef("#vexy"));
+    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
     
     // %# and \t replacement
-    assertEquals("Hello,\t#vexy.", parser.parse("Hello,%t%#.").evaluateExpression(ctx).toString());
+    assertEquals("Hello,\t#1.", parser.parse("Hello,%t%#.").evaluateExpression(ctx).toString());
     
     // space compression
     assertEquals("Hello, vexy", parser.parse("Hello,  vexy").evaluateExpression(ctx).toString());

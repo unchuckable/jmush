@@ -9,7 +9,7 @@ public enum ContextExpressions implements Expression {
   getCallerRef {
     @Override
     public Value evaluateExpression(ExecutionContext context) {
-      return Value.of(context.getCaller().getDbRef());
+      return Value.of(context.getCaller().getDbRefString());
     }
   };
 

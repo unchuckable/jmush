@@ -11,6 +11,6 @@ public class ObjectFunctions {
   }
   
   public static Value getCallerDbRef( ExecutionContext ctx, List<Value> params ) {
-    return Value.of( ctx.getCaller().getDbRef() );
+    return Value.of( ctx.getCaller().getDbRefString() );
   }
 }
