@@ -12,6 +12,8 @@ cache:
 build:
   script:
     - mvn clean install -B
+    - grep -o '<tfoot>.*</tfoot>' target/site/jacoco/index.html
+  coverage: '/Total.*?([0-9]{1,3})%/'
   artifacts:
     paths:
       - target/site/jacoco/jacoco.xml
