@@ -15,6 +15,10 @@ build:
   artifacts:
     paths:
       - target/site/jacoco/jacoco.xml
+    reports:
+      junit:
+        - "**/surefire-reports/TEST-*.xml"
+        - "**/failsafe-reports/TEST-*.xml"
 
 coverage:
   image: registry.gitlab.com/haynes/jacoco2cobertura:1.0.7
