@@ -17,7 +17,7 @@ build:
       - target/site/jacoco/jacoco.xml
 
 coverage:
-  image: registry.gitlab.com/hayes/jacoco2cobertura:1.0.7
+  image: registry.gitlab.com/haynes/jacoco2cobertura:1.0.7
   needs: 
     - build
   script:
