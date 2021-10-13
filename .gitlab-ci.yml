@@ -18,7 +18,8 @@ build:
 
 coverage:
   image: hayes/jacoco2cobertura:1.0.7
-  needs: build
+  needs: 
+    - build
   script:
     - python /opt/cover2cover.py target/site/jacoco/jacoco.xml ${CI_PROJECT_DIR}/src/main/java/ > /target/cobertura.xml
   artifacts:
