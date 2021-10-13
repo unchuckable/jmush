@@ -1,5 +1,28 @@
+
+  MAVEN_OPTS: "-Dhttps.protocols=TLSv1.2 -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+
+
 image: maven:latest
+
+cache:
+  paths:
+    - .m2/repository
 
 build:
   script:
     - mvn clean install -B
+  artifacts:
+    paths:
+      - target/site/jacoco/jacoco.xml
+
+coverage:
+  image: hayes/jacoco2cobertura:1.0.7
+  needs: build
+  script:
+    - python /opt/cover2cover.py target/site/jacoco/jacoco.xml ${CI_PROJECT_DIR}/src/main/java/ > /target/cobertura.xml
+  artifacts:
+    reports:
+      cobertura:
+        - target/cobertura.xml
+  

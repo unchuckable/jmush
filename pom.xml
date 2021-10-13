@@ -7,6 +7,8 @@
   <properties>
   	<maven.compiler.source>1.8</maven.compiler.source>
   	<maven.compiler.target>1.8</maven.compiler.target>
+
+	<jacoco.version>0.8.7</jacoco.version>
   </properties>
   
   
@@ -23,4 +25,30 @@
   		<version>5.5.2</version>
   	</dependency>
   </dependencies>
+
+  <build>
+	  <plugins>
+		<plugin>
+			<groupId>org.jacoco</groupId>
+			<artifactId>jacoco-maven-plugin</artifactId>
+			<version>${jacoco.version}</version>
+			<executions>
+				<execution>
+					<id>pre-unit-test</id>
+					<goals>
+						<goal>prepare-agent</goal>
+					</goals>
+				</execution>
+				<execution>
+					<id>post-unit-test</id>
+					<phase>test</phase>
+					<goals>
+						<goal>report</goal>
+					</goals>
+				</execution>
+			</executions>
+		</plugin>
+	  </plugins>
+  </build>
+
 </project>
