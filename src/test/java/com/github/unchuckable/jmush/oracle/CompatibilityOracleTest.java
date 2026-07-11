@@ -66,6 +66,20 @@ public class CompatibilityOracleTest {
   }
 
   @Test
+  void variableAttributeAndRegisterSwallowBugMatchOracle() throws IOException {
+    // %v<letter>/%q<digit> always consume the char immediately after, even when it isn't a
+    // valid letter/digit -- a documented eval.c misfeature.
+    assertMatchesOracle("a%v1b");
+    assertMatchesOracle("a%v_b");
+    assertMatchesOracle("a%vb");
+    assertMatchesOracle("a%vzb");
+    assertMatchesOracle("a%qzb");
+    assertMatchesOracle("a%q9b");
+    assertMatchesOracle("%v");
+    assertMatchesOracle("%q");
+  }
+
+  @Test
   void forcedEvalMatchesOracle() throws IOException {
     assertMatchesOracle("[%#]");
     assertMatchesOracle("x[%#]y");

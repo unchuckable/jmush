@@ -1,5 +1,6 @@
 package com.github.unchuckable.jmush.mushcode;
 
+import com.github.unchuckable.jmush.mushcode.expressions.AttributeExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
@@ -148,9 +149,24 @@ public class MushcodeParser {
                 substitution = ContextExpressions.CALLER_NAME;
                 break;
               case 'q':
-                if (index + 1 < string.length() && Character.isDigit(string.charAt(index + 1))) {
+                // the char after 'q'/'v' is always consumed if present, even when it isn't a
+                // valid digit/letter -- a documented eval.c misfeature (oracle-verified: e.g.
+                // "a%qzb" -> "ab", not "azb")
+                if (index + 1 < string.length()) {
+                  char registerChar = string.charAt(index + 1);
                   index++;
-                  substitution = new RegisterExpression(string.charAt(index) - '0');
+                  if (Character.isDigit(registerChar)) {
+                    substitution = new RegisterExpression(registerChar - '0');
+                  }
+                }
+                break;
+              case 'v':
+                if (index + 1 < string.length()) {
+                  char attributeLetter = Character.toUpperCase(string.charAt(index + 1));
+                  index++;
+                  if (attributeLetter >= 'A' && attributeLetter <= 'Z') {
+                    substitution = new AttributeExpression("V" + attributeLetter);
+                  }
                 }
                 break;
               default:

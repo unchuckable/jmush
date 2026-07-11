@@ -48,6 +48,39 @@ public class MushcodeParserTest {
   }
 
   @Test
+  public void testVariableAttributeSubstitution() {
+    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushObject caller = new MushObject().withName("vexy").withDbRefString("#1");
+    caller.setAttribute("VA", "hello");
+    ExecutionContext ctx = new ExecutionContext().withCaller(caller);
+
+    // %v<letter> is case-insensitive on the attribute letter
+    assertEquals("hello", parser.parse("%va").evaluateExpression(ctx).toString());
+    assertEquals("hello", parser.parse("%vA").evaluateExpression(ctx).toString());
+    // %V uppercases the first character of the result, like other substitutions
+    assertEquals("Hello", parser.parse("%Va").evaluateExpression(ctx).toString());
+    // unset attribute substitutes to empty, not a literal
+    assertEquals("", parser.parse("%vz").evaluateExpression(ctx).toString());
+
+    // the char after 'v' is always consumed if present, even when invalid -- an eval.c
+    // misfeature also shared by %q (oracle-verified: "a%v1b" -> "ab", not "a1b")
+    assertEquals("ab", parser.parse("a%v1b").evaluateExpression(ctx).toString());
+    assertEquals("a", parser.parse("a%v").evaluateExpression(ctx).toString());
+  }
+
+  @Test
+  public void testRegisterSubstitutionSwallowsInvalidChar() {
+    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
+
+    // the char after 'q' is always consumed if present, even when it isn't a digit --
+    // oracle-verified: "a%qzb" -> "ab", not "azb"
+    assertEquals("ab", parser.parse("a%qzb").evaluateExpression(ctx).toString());
+    assertEquals("a", parser.parse("a%q").evaluateExpression(ctx).toString());
+  }
+
+  @Test
   public void testForcedEvaluation() {
     MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
     ExecutionContext ctx =

@@ -307,6 +307,28 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       (`'a\ '` appeared to lose its escaped trailing space via the oracle, contradicting a
       literal reading of `eval.c`'s escape handling -- plausibly `think`-command-line
       trimming rather than evaluator behavior; not chased further, low real-world impact).
+      Added `%v<A-Z>` (`AttributeExpression`, reads the caller's `V<letter>` attribute off
+      `MushObject`'s existing flat attribute map, e.g. `%va` -> attribute `VA`) -- along the
+      way, oracle-probing found `%v`/`%q` share an `eval.c` misfeature where the character
+      right after the type letter is *always* consumed if present, even when it isn't a
+      valid letter/digit (e.g. `"a%qzb"` -> `"ab"`, not `"azb"`); fixed `%q`'s existing
+      implementation to match (previously it only consumed on a valid digit, a latent bug --
+      no prior test exercised the invalid-char case). Both oracle-verified. Still not
+      modeled: `%!` (executor dbref) and `%0`-`%9` (command-argument substitution) are
+      parseable in principle but not usefully implementable yet -- jmush's `ExecutionContext`
+      has no invoker/executor split and no command-dispatch/wildcard-match infrastructure to
+      populate them, so either would just duplicate `%#` or always resolve empty; deferred
+      until that infrastructure exists. `%x`/`%X` (ANSI color) turned out to be ambiguous to
+      verify: `eval.c` always emits raw escape codes when `mudconf.ansi_colors` is on, but the
+      test oracle's connected player lacks the ANSI object flag, so the *delivered* output is
+      stripped downstream in `notify()`, not in `exec()` -- can't oracle-diff the "on" case
+      through the current `think`-based harness, and stripping arguably belongs to a future
+      output/connection layer, not `Expression` evaluation; deferred. `%l`/`%L` (location),
+      `%o`/`%p`/`%s`/`%a` (pronouns, need a `SEX`-attribute-driven gender lookup), `%=`
+      (generic attribute get with permission checks), and `%_` (x-variables, need a global
+      var table with no way to populate it yet) all need object-graph/attribute-model
+      features DESIGN.md already schedules later (full attribute model, permissions) --
+      deferred rather than building on a flat attribute map known to be replaced.
 - [x] Add `Value.asInt()`/`asDouble()`/`asDbRef()` (each with a default and a
       custom-error-message overload, throwing `MushValueException`) and `ofInt`/`ofDouble`/
       `ofDbRef` factories, matching TinyMUSH's exact numeric formatting/error-string
