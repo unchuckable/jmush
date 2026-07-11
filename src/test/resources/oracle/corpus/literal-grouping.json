@@ -1,0 +1,13 @@
+{
+  "notes": "braces are kept in the output, and %-substitutions still evaluate inside them. (Function-call suppression inside {} can\u0027t be oracle-diffed yet -- jmush has no ported functions to compare against a real one; see MushcodeParserTest for a stub-function unit test of that half.)",
+  "cases": [
+    {
+      "input": "a{literal %# here}b",
+      "expected": "a{literal #1 here}b"
+    },
+    {
+      "input": "x{%#}y",
+      "expected": "x{#1}y"
+    }
+  ]
+}

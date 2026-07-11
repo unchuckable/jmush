@@ -1,0 +1,20 @@
+{
+  "cases": [
+    {
+      "input": "Hello,%t%#.",
+      "expected": "Hello,\t#1."
+    },
+    {
+      "input": "Hello,  vexy",
+      "expected": "Hello, vexy"
+    },
+    {
+      "input": "%r",
+      "expected": "\r\n"
+    },
+    {
+      "input": "%n",
+      "expected": "Wizard"
+    }
+  ]
+}

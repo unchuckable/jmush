@@ -1,0 +1,16 @@
+{
+  "cases": [
+    {
+      "input": "[%#]",
+      "expected": "#1"
+    },
+    {
+      "input": "x[%#]y",
+      "expected": "x#1y"
+    },
+    {
+      "input": "[%n]",
+      "expected": "Wizard"
+    }
+  ]
+}

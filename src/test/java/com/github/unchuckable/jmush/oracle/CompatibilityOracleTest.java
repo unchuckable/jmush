@@ -1,215 +1,93 @@
 package com.github.unchuckable.jmush.oracle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
+import static org.junit.jupiter.api.DynamicTest.dynamicTest;
 
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.MushcodeParser;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
 import java.io.IOException;
-import java.net.InetSocketAddress;
-import java.net.Socket;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import java.util.stream.Stream;
+import org.junit.jupiter.api.DynamicTest;
+import org.junit.jupiter.api.TestFactory;
 
 /**
- * Differential test: evaluates a corpus of mushcode snippets against both jmush and a running
- * reference oracle server, asserting identical output. Skips (rather than fails) when no oracle is
- * reachable, since most dev machines and CI won't have one running by default -- see DESIGN.md's
- * Phase 0 compatibility-oracle spike.
- *
- * <p>Requires a TinyMUSH server on ORACLE_HOST:ORACLE_PORT (default 127.0.0.1:6250), logged in as
- * ORACLE_USER/ORACLE_PASS (default #1/potrzebie) matching the object identity used for %#
- * substitution below.
+ * Differential test: evaluates a corpus of mushcode snippets against jmush, asserting the result
+ * matches oracle output recorded from a real TinyMUSH server. The corpus lives as JSON fixture
+ * files under {@code src/test/resources/oracle/corpus/} (one per category below) and is read
+ * straight off the classpath -- no live oracle connection or network access is needed to run this
+ * test. When a corpus file gains new snippets, or oracle behavior needs re-verification, run {@link
+ * OracleFixtureRecorder} against a live oracle to (re-)populate the {@code expected} fields, then
+ * commit the updated fixtures.
  */
 public class CompatibilityOracleTest {
 
-  private static final String HOST = getEnv("ORACLE_HOST", "127.0.0.1");
-  private static final int PORT = Integer.parseInt(getEnv("ORACLE_PORT", "6250"));
-  private static final String USER = getEnv("ORACLE_USER", "#1");
-  private static final String PASSWORD = getEnv("ORACLE_PASS", "potrzebie");
-  private static final String CALLER_NAME = getEnv("ORACLE_USER_NAME", "Wizard");
-  private static final String CALLER_DBREF = USER;
+  private static final String CALLER_NAME = "Wizard";
+  private static final String CALLER_DBREF = "#1";
 
-  private static boolean oracleAvailable;
-  private static OracleClient oracle;
-
-  @BeforeAll
-  static void connect() {
-    oracleAvailable = isReachable(HOST, PORT);
-    assumeTrue(
-        oracleAvailable, "No oracle server reachable at " + HOST + ":" + PORT + " -- skipping");
-    try {
-      oracle = new OracleClient(HOST, PORT);
-      oracle.login(USER, PASSWORD);
-    } catch (IOException e) {
-      throw new RuntimeException(e);
-    }
+  @TestFactory
+  Stream<DynamicTest> substitutionsMatchOracle() throws IOException {
+    return corpusTests("substitutions.json");
   }
 
-  @AfterAll
-  static void disconnect() throws IOException {
-    if (oracle != null) {
-      oracle.quit();
-      oracle.close();
-    }
+  @TestFactory
+  Stream<DynamicTest> variableAttributeAndRegisterSwallowBugMatchOracle() throws IOException {
+    return corpusTests("variable-attribute-register-swallow-bug.json");
   }
 
-  @Test
-  void substitutionsMatchOracle() throws IOException {
-    assertMatchesOracle("Hello,%t%#.");
-    assertMatchesOracle("Hello,  vexy");
-    assertMatchesOracle("%r");
-    assertMatchesOracle("%n");
+  @TestFactory
+  Stream<DynamicTest> forcedEvalMatchesOracle() throws IOException {
+    return corpusTests("forced-eval.json");
   }
 
-  @Test
-  void variableAttributeAndRegisterSwallowBugMatchOracle() throws IOException {
-    // %v<letter>/%q<digit> always consume the char immediately after, even when it isn't a
-    // valid letter/digit -- a documented eval.c misfeature.
-    assertMatchesOracle("a%v1b");
-    assertMatchesOracle("a%v_b");
-    assertMatchesOracle("a%vb");
-    assertMatchesOracle("a%vzb");
-    assertMatchesOracle("a%qzb");
-    assertMatchesOracle("a%q9b");
-    assertMatchesOracle("%v");
-    assertMatchesOracle("%q");
+  @TestFactory
+  Stream<DynamicTest> literalGroupingMatchesOracle() throws IOException {
+    return corpusTests("literal-grouping.json");
   }
 
-  @Test
-  void forcedEvalMatchesOracle() throws IOException {
-    assertMatchesOracle("[%#]");
-    assertMatchesOracle("x[%#]y");
-    assertMatchesOracle("[%n]");
+  @TestFactory
+  Stream<DynamicTest> spaceStrippingMatchesOracle() throws IOException {
+    return corpusTests("space-stripping.json");
   }
 
-  @Test
-  void literalGroupingMatchesOracle() throws IOException {
-    // braces are kept in the output, and %-substitutions still evaluate inside them.
-    // (Function-call suppression inside {} can't be oracle-diffed yet -- jmush has no
-    // ported functions to compare against a real one; see MushcodeParserTest for a
-    // stub-function unit test of that half.)
-    assertMatchesOracle("a{literal %# here}b");
-    assertMatchesOracle("x{%#}y");
+  @TestFactory
+  Stream<DynamicTest> mathFunctionsMatchOracle() throws IOException {
+    return corpusTests("math-functions.json");
   }
 
-  @Test
-  void spaceStrippingMatchesOracle() throws IOException {
-    // leading/trailing spaces are fully removed, not merely compressed to one
-    // (eval.c: at_space starts true, and a trailing "still at_space" deletes the
-    // last written char) -- interior runs still compress to a single space.
-    assertMatchesOracle("a b ");
-    assertMatchesOracle(" a b");
-    assertMatchesOracle("a  b");
-    assertMatchesOracle("   ");
-    assertMatchesOracle("a[%#] ");
-    assertMatchesOracle("a %#");
-    assertMatchesOracle("%#  ");
-    assertMatchesOracle(" %#");
+  @TestFactory
+  Stream<DynamicTest> comparisonFunctionsMatchOracle() throws IOException {
+    return corpusTests("comparison-functions.json");
   }
 
-  @Test
-  void mathFunctionsMatchOracle() throws IOException {
-    assertMatchesOracle("add(12,3)");
-    assertMatchesOracle("add(10,5,3)");
-    assertMatchesOracle("add(abc,3)");
-    assertMatchesOracle("add(12abc,3)");
-    assertMatchesOracle("add(1)");
-    assertMatchesOracle("add()");
-    assertMatchesOracle("sub(10,3)");
-    assertMatchesOracle("sub(abc,3)");
-    assertMatchesOracle("sub(1)");
-    assertMatchesOracle("abs(-5)");
-    assertMatchesOracle("abs(-5.5)");
-    assertMatchesOracle("abs(abc)");
-    assertMatchesOracle("mul(2,3,4)");
-    assertMatchesOracle("mul(2,abc)");
-    assertMatchesOracle("mul(2)");
-    assertMatchesOracle("mul()");
-    assertMatchesOracle("div(7,2)");
-    assertMatchesOracle("div(-7,2)");
-    assertMatchesOracle("div(7,-2)");
-    assertMatchesOracle("div(-7,-2)");
-    assertMatchesOracle("div(7,0)");
-    assertMatchesOracle("fdiv(7,2)");
-    assertMatchesOracle("fdiv(7.5,2.5)");
-    assertMatchesOracle("fdiv(7,0)");
-    assertMatchesOracle("mod(7,3)");
-    assertMatchesOracle("mod(-7,3)");
-    assertMatchesOracle("mod(7,-3)");
-    assertMatchesOracle("mod(7,0)");
+  @TestFactory
+  Stream<DynamicTest> logicFunctionsMatchOracle() throws IOException {
+    return corpusTests("logic-functions.json");
   }
 
-  @Test
-  void comparisonFunctionsMatchOracle() throws IOException {
-    assertMatchesOracle("eq(1,1)");
-    assertMatchesOracle("eq(1,2)");
-    assertMatchesOracle("eq(1.0,1)");
-    assertMatchesOracle("neq(1,2)");
-    assertMatchesOracle("gt(2,1)");
-    assertMatchesOracle("gte(2,2)");
-    assertMatchesOracle("lt(1,2)");
-    assertMatchesOracle("lte(2,2)");
-    assertMatchesOracle("eq(1)");
+  @TestFactory
+  Stream<DynamicTest> stringFunctionsMatchOracle() throws IOException {
+    return corpusTests("string-functions.json");
   }
 
-  @Test
-  void logicFunctionsMatchOracle() throws IOException {
-    assertMatchesOracle("and(1,1)");
-    assertMatchesOracle("and(1,0)");
-    assertMatchesOracle("and(0,1,1)");
-    assertMatchesOracle("and(1)");
-    assertMatchesOracle("and()");
-    assertMatchesOracle("or(0,0)");
-    assertMatchesOracle("or(0,1)");
-    assertMatchesOracle("or(1)");
-    assertMatchesOracle("xor(1,0)");
-    assertMatchesOracle("xor(1,1)");
-    assertMatchesOracle("xor(0,0)");
-    assertMatchesOracle("xor(1)");
-    assertMatchesOracle("not(0)");
-    assertMatchesOracle("not(5)");
-    assertMatchesOracle("not(abc)");
-    assertMatchesOracle("not(0.0)");
-    assertMatchesOracle("not(0.5)");
-    assertMatchesOracle("not()");
-    assertMatchesOracle("not(1,2)");
+  private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
+    OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
+    return corpus.cases.stream()
+        .map(
+            c ->
+                dynamicTest(
+                    "\"" + c.input + "\"",
+                    () ->
+                        assertEquals(
+                            c.expected, evaluate(c.input), () -> "mismatch for: " + c.input)));
   }
 
-  @Test
-  void stringFunctionsMatchOracle() throws IOException {
-    assertMatchesOracle("cat(a,b,c)");
-    assertMatchesOracle("cat(a)");
-    assertMatchesOracle("cat()");
-    assertMatchesOracle("strlen(hello)");
-    assertMatchesOracle("strlen()");
-    assertMatchesOracle("strlen(hello world)");
-  }
-
-  private void assertMatchesOracle(String mushcode) throws IOException {
+  private String evaluate(String mushcode) {
     MushcodeParser parser = new MushcodeParser(FunctionRegistry.build());
     ExecutionContext ctx =
         new ExecutionContext()
             .withCaller(new MushObject().withName(CALLER_NAME).withDbRefString(CALLER_DBREF));
-    String jmushResult = parser.parse(mushcode).evaluateExpression(ctx).toString();
-    String oracleResult = oracle.eval(mushcode);
-    assertEquals(oracleResult, jmushResult, () -> "mismatch for: " + mushcode);
-  }
-
-  private static boolean isReachable(String host, int port) {
-    try (Socket socket = new Socket()) {
-      socket.connect(new InetSocketAddress(host, port), 500);
-      return true;
-    } catch (IOException e) {
-      return false;
-    }
-  }
-
-  private static String getEnv(String name, String defaultValue) {
-    String value = System.getenv(name);
-    return value != null ? value : defaultValue;
+    return parser.parse(mushcode).evaluateExpression(ctx).toString();
   }
 }

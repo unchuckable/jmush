@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "input": "cat(a,b,c)",
+      "expected": "a b c"
+    },
+    {
+      "input": "cat(a)",
+      "expected": "a"
+    },
+    {
+      "input": "cat()",
+      "expected": ""
+    },
+    {
+      "input": "strlen(hello)",
+      "expected": "5"
+    },
+    {
+      "input": "strlen()",
+      "expected": "0"
+    },
+    {
+      "input": "strlen(hello world)",
+      "expected": "11"
+    }
+  ]
+}

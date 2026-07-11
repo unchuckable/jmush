@@ -1,0 +1,116 @@
+{
+  "cases": [
+    {
+      "input": "add(12,3)",
+      "expected": "15"
+    },
+    {
+      "input": "add(10,5,3)",
+      "expected": "18"
+    },
+    {
+      "input": "add(abc,3)",
+      "expected": "3"
+    },
+    {
+      "input": "add(12abc,3)",
+      "expected": "15"
+    },
+    {
+      "input": "add(1)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "add()",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "sub(10,3)",
+      "expected": "7"
+    },
+    {
+      "input": "sub(abc,3)",
+      "expected": "-3"
+    },
+    {
+      "input": "sub(1)",
+      "expected": "#-1 FUNCTION (SUB) EXPECTS 2 ARGUMENTS"
+    },
+    {
+      "input": "abs(-5)",
+      "expected": "5"
+    },
+    {
+      "input": "abs(-5.5)",
+      "expected": "5.5"
+    },
+    {
+      "input": "abs(abc)",
+      "expected": "0"
+    },
+    {
+      "input": "mul(2,3,4)",
+      "expected": "24"
+    },
+    {
+      "input": "mul(2,abc)",
+      "expected": "0"
+    },
+    {
+      "input": "mul(2)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "mul()",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "div(7,2)",
+      "expected": "3"
+    },
+    {
+      "input": "div(-7,2)",
+      "expected": "-3"
+    },
+    {
+      "input": "div(7,-2)",
+      "expected": "-3"
+    },
+    {
+      "input": "div(-7,-2)",
+      "expected": "3"
+    },
+    {
+      "input": "div(7,0)",
+      "expected": "#-1 DIVIDE BY ZERO"
+    },
+    {
+      "input": "fdiv(7,2)",
+      "expected": "3.5"
+    },
+    {
+      "input": "fdiv(7.5,2.5)",
+      "expected": "3"
+    },
+    {
+      "input": "fdiv(7,0)",
+      "expected": "#-1 DIVIDE BY ZERO"
+    },
+    {
+      "input": "mod(7,3)",
+      "expected": "1"
+    },
+    {
+      "input": "mod(-7,3)",
+      "expected": "-1"
+    },
+    {
+      "input": "mod(7,-3)",
+      "expected": "1"
+    },
+    {
+      "input": "mod(7,0)",
+      "expected": "0"
+    }
+  ]
+}

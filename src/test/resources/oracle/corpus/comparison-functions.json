@@ -1,0 +1,40 @@
+{
+  "cases": [
+    {
+      "input": "eq(1,1)",
+      "expected": "1"
+    },
+    {
+      "input": "eq(1,2)",
+      "expected": "0"
+    },
+    {
+      "input": "eq(1.0,1)",
+      "expected": "1"
+    },
+    {
+      "input": "neq(1,2)",
+      "expected": "1"
+    },
+    {
+      "input": "gt(2,1)",
+      "expected": "1"
+    },
+    {
+      "input": "gte(2,2)",
+      "expected": "1"
+    },
+    {
+      "input": "lt(1,2)",
+      "expected": "1"
+    },
+    {
+      "input": "lte(2,2)",
+      "expected": "1"
+    },
+    {
+      "input": "eq(1)",
+      "expected": "#-1 FUNCTION (EQ) EXPECTS 2 ARGUMENTS"
+    }
+  ]
+}

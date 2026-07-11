@@ -1,0 +1,37 @@
+{
+  "notes": "%v\u003cletter\u003e/%q\u003cdigit\u003e always consume the char immediately after, even when it isn\u0027t a valid letter/digit -- a documented eval.c misfeature.",
+  "cases": [
+    {
+      "input": "a%v1b",
+      "expected": "ab"
+    },
+    {
+      "input": "a%v_b",
+      "expected": "ab"
+    },
+    {
+      "input": "a%vb",
+      "expected": "a"
+    },
+    {
+      "input": "a%vzb",
+      "expected": "ab"
+    },
+    {
+      "input": "a%qzb",
+      "expected": "ab"
+    },
+    {
+      "input": "a%q9b",
+      "expected": "ab"
+    },
+    {
+      "input": "%v",
+      "expected": ""
+    },
+    {
+      "input": "%q",
+      "expected": ""
+    }
+  ]
+}

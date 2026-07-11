@@ -1,0 +1,37 @@
+{
+  "notes": "leading/trailing spaces are fully removed, not merely compressed to one (eval.c: at_space starts true, and a trailing \u0027still at_space\u0027 deletes the last written char) -- interior runs still compress to a single space.",
+  "cases": [
+    {
+      "input": "a b ",
+      "expected": "a b"
+    },
+    {
+      "input": " a b",
+      "expected": "a b"
+    },
+    {
+      "input": "a  b",
+      "expected": "a b"
+    },
+    {
+      "input": "   ",
+      "expected": ""
+    },
+    {
+      "input": "a[%#] ",
+      "expected": "a#1"
+    },
+    {
+      "input": "a %#",
+      "expected": "a #1"
+    },
+    {
+      "input": "%#  ",
+      "expected": "#1"
+    },
+    {
+      "input": " %#",
+      "expected": "#1"
+    }
+  ]
+}

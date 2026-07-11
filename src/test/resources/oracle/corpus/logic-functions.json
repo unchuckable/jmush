@@ -1,0 +1,80 @@
+{
+  "cases": [
+    {
+      "input": "and(1,1)",
+      "expected": "1"
+    },
+    {
+      "input": "and(1,0)",
+      "expected": "0"
+    },
+    {
+      "input": "and(0,1,1)",
+      "expected": "0"
+    },
+    {
+      "input": "and(1)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "and()",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "or(0,0)",
+      "expected": "0"
+    },
+    {
+      "input": "or(0,1)",
+      "expected": "1"
+    },
+    {
+      "input": "or(1)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "xor(1,0)",
+      "expected": "1"
+    },
+    {
+      "input": "xor(1,1)",
+      "expected": "0"
+    },
+    {
+      "input": "xor(0,0)",
+      "expected": "0"
+    },
+    {
+      "input": "xor(1)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "not(0)",
+      "expected": "1"
+    },
+    {
+      "input": "not(5)",
+      "expected": "0"
+    },
+    {
+      "input": "not(abc)",
+      "expected": "1"
+    },
+    {
+      "input": "not(0.0)",
+      "expected": "1"
+    },
+    {
+      "input": "not(0.5)",
+      "expected": "1"
+    },
+    {
+      "input": "not()",
+      "expected": "1"
+    },
+    {
+      "input": "not(1,2)",
+      "expected": "#-1 FUNCTION (NOT) EXPECTS 1 ARGUMENTS"
+    }
+  ]
+}
