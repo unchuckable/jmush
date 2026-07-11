@@ -1,4 +1,4 @@
-package com.github.unchuckable.jmush.mushcode.expressions;
+package com.github.unchuckable.jmush.mushcode.functions.builtin;
 
 import java.util.List;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;

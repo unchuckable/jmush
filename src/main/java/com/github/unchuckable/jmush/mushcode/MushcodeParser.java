@@ -7,9 +7,9 @@ import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
-import com.github.unchuckable.jmush.mushcode.expressions.MushFunctionHandler;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
+import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
 import com.github.unchuckable.jmush.util.StringUtils;
 
 public class MushcodeParser {

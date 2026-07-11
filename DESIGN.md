@@ -353,7 +353,16 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       proof of the whole pipeline: `add()` (variadic), `sub()` (2-arg), `abs()` (1-arg) --
       all use the new `Value.aton()` lenient parser (not the strict `asDouble()`), oracle
       -verified including the atof-style leniency (`add(12abc,3)` -> `15`,
-      `add(abc,3)` -> `3`).
+      `add(abc,3)` -> `3`). For fixed-arity methods, `FunctionRegistry` derives `minArgs`/
+      `maxArgs` from the parameter count instead of trusting the annotation to restate it
+      (annotation's values are only consulted for the variadic shape) -- removes a spot
+      where the two could silently drift out of sync. Also split the grab-bag
+      `mushcode.expressions` package: it now holds only actual `Expression` tree-node
+      types; the registration machinery (`MushFunction`, `MushFunctionHandler`,
+      `MushFunctionN`, `FunctionRegistry`) moved to `mushcode.functions`, and the provider
+      classes (`MathFunctions`, `ObjectFunctions`) moved to `mushcode.functions.builtin`,
+      leaving room for it to grow to the ~300-function scale without conflating three
+      different concerns in one package.
 - [ ] Port string/math/list functions that don't touch the object graph, each verified against
       the oracle.
 

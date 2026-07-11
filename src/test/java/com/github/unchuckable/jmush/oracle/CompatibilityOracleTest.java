@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.MushcodeParser;
-import com.github.unchuckable.jmush.mushcode.expressions.FunctionRegistry;
+import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
 
 /**
  * Differential test: evaluates a corpus of mushcode snippets against both jmush and a

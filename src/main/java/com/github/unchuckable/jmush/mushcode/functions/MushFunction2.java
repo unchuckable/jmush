@@ -1,4 +1,4 @@
-package com.github.unchuckable.jmush.mushcode.expressions;
+package com.github.unchuckable.jmush.mushcode.functions;
 
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Value;

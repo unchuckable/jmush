@@ -1,9 +1,10 @@
-package com.github.unchuckable.jmush.mushcode.expressions;
+package com.github.unchuckable.jmush.mushcode.functions.builtin;
 
 import java.util.List;
 
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Value;
+import com.github.unchuckable.jmush.mushcode.functions.MushFunction;
 
 public class MathFunctions {
 
@@ -16,12 +17,12 @@ public class MathFunctions {
     return Value.ofDouble(sum);
   }
 
-  @MushFunction(name = "sub", minArgs = 2, maxArgs = 2)
+  @MushFunction(name = "sub")
   public static Value sub(ExecutionContext ctx, Value a, Value b) {
     return Value.ofDouble(a.aton() - b.aton());
   }
 
-  @MushFunction(name = "abs", minArgs = 1, maxArgs = 1)
+  @MushFunction(name = "abs")
   public static Value abs(ExecutionContext ctx, Value a) {
     return Value.ofDouble(Math.abs(a.aton()));
   }

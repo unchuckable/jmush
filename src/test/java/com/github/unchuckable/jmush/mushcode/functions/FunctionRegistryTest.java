@@ -1,4 +1,4 @@
-package com.github.unchuckable.jmush.mushcode.expressions;
+package com.github.unchuckable.jmush.mushcode.functions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

@@ -1,4 +1,4 @@
-package com.github.unchuckable.jmush.mushcode.expressions;
+package com.github.unchuckable.jmush.mushcode.functions;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaMetafactory;
@@ -15,6 +15,7 @@ import java.util.Map;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.MushValueException;
 import com.github.unchuckable.jmush.mushcode.Value;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.MathFunctions;
 
 /**
  * Reflects over an explicit, hand-maintained list of provider classes and builds the
@@ -60,10 +61,20 @@ public class FunctionRegistry {
     }
 
     MushFunctionHandler unvalidated;
+    int minArgs;
+    int maxArgs;
     if (paramTypes.length == 2 && paramTypes[1] == List.class) {
+      // variadic: arity isn't derivable from the signature, so the annotation must say
       unvalidated = adaptVariadic(lookup, method);
+      minArgs = annotation.minArgs();
+      maxArgs = annotation.maxArgs();
     } else if (allTrailingParamsAreValue(paramTypes)) {
-      unvalidated = adaptFixedArity(lookup, method, paramTypes.length - 1);
+      // fixed-arity: the Value parameter count *is* the arity, so derive it rather than
+      // trust the annotation to restate it correctly
+      int arity = paramTypes.length - 1;
+      unvalidated = adaptFixedArity(lookup, method, arity);
+      minArgs = arity;
+      maxArgs = arity;
     } else {
       throw new IllegalArgumentException(
           "@MushFunction method must take (ExecutionContext, Value...) or "
@@ -71,8 +82,6 @@ public class FunctionRegistry {
     }
 
     String name = annotation.name();
-    int minArgs = annotation.minArgs();
-    int maxArgs = annotation.maxArgs();
     return (ctx, args) -> {
       int argCount = args == null ? 0 : args.size();
       if (argCount < minArgs || argCount > maxArgs) {

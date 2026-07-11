@@ -7,7 +7,7 @@ import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
-import com.github.unchuckable.jmush.mushcode.expressions.ObjectFunctions;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.ObjectFunctions;
 
 public class ConcatExpressionTest {
 

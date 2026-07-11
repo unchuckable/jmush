@@ -5,7 +5,7 @@ import java.util.Collections;
 import org.junit.jupiter.api.Test;
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
-import com.github.unchuckable.jmush.mushcode.expressions.ObjectFunctions;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.ObjectFunctions;
 
 public class ObjectFunctionsTest {
 
