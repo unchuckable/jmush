@@ -8,6 +8,8 @@ import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.MushFunction;
+import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
+import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.util.StringUtils;
 
 public class MushcodeParser {
@@ -55,7 +57,21 @@ public class MushcodeParser {
             if (endIndex == -1) {
               builder.append('{');
             } else {
-              builder.append(string.substring(index + 1, endIndex - 1));
+              builder.append(string.substring(index + 1, endIndex));
+              index = endIndex;
+            }
+            break;
+          }
+
+        case '[':
+          { // forced evaluation
+            int endIndex = StringUtils.findIndexOf(']', string, index + 1);
+            if (endIndex == -1) {
+              builder.append('[');
+            } else {
+              flushBuilder(builder, finishedExpressions);
+              finishedExpressions.add(parse(string.substring(index + 1, endIndex)));
+              index = endIndex;
             }
             break;
           }
@@ -77,10 +93,10 @@ public class MushcodeParser {
                 builder.append('(');
                 break;
               }
-              List<Expression> parameters = getParameters(string, index + 1, endIndex - 1);
+              List<Expression> parameters = getParameters(string, index + 1, endIndex);
               builder.setLength(0);
               finishedExpressions.add(new FunctionExpression(function, parameters));
-              index++;
+              index = endIndex;
             }
             break;
           }
@@ -91,15 +107,14 @@ public class MushcodeParser {
               break;
             }
             char nextChar = string.charAt(index);
-            switch (nextChar) {
+            boolean upper = Character.isUpperCase(nextChar);
+            Expression substitution = null;
+            switch (Character.toLowerCase(nextChar)) {
               case '%':
                 builder.append('%');
                 break;
               case 'r':
                 builder.append("\r\n");
-                break;
-              case 'n':
-                builder.append('\n');
                 break;
               case 'b':
                 builder.append(' ');
@@ -108,10 +123,28 @@ public class MushcodeParser {
                 builder.append('\t');
                 break;
               case '#':
-                finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
-                builder.setLength(0);
-                finishedExpressions.add(ContextExpressions.getCallerRef);
+                substitution = ContextExpressions.getCallerRef;
                 break;
+              case 'n':
+                substitution = ContextExpressions.getCallerName;
+                break;
+              case 'q':
+                if (index + 1 < string.length() && Character.isDigit(string.charAt(index + 1))) {
+                  index++;
+                  substitution = new RegisterExpression(string.charAt(index) - '0');
+                }
+                break;
+              default:
+                // unimplemented substitution -- copy the character verbatim, matching
+                // eval.c's default case, until the corresponding gap is closed
+                builder.append(nextChar);
+            }
+            if (substitution != null) {
+              if (upper) {
+                substitution = new UppercaseFirstExpression(substitution);
+              }
+              flushBuilder(builder, finishedExpressions);
+              finishedExpressions.add(substitution);
             }
             break;
           }
@@ -145,7 +178,14 @@ public class MushcodeParser {
       currentIndex = nextIndex + 1;
       nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);
     }
-    parameters.add(parse(string.substring(currentIndex)));
+    parameters.add(parse(string.substring(currentIndex, endIndex)));
     return parameters;
+  }
+
+  private void flushBuilder(StringBuilder builder, List<Expression> finishedExpressions) {
+    if (builder.length() > 0) {
+      finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
+      builder.setLength(0);
+    }
   }
 }

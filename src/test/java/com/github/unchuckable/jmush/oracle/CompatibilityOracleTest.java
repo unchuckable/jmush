@@ -63,6 +63,14 @@ public class CompatibilityOracleTest {
         assertMatchesOracle("Hello,%t%#.");
         assertMatchesOracle("Hello,  vexy");
         assertMatchesOracle("%r");
+        assertMatchesOracle("%n");
+    }
+
+    @Test
+    void forcedEvalMatchesOracle() throws IOException {
+        assertMatchesOracle("[%#]");
+        assertMatchesOracle("x[%#]y");
+        assertMatchesOracle("[%n]");
     }
 
     private void assertMatchesOracle(String mushcode) throws IOException {

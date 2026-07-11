@@ -252,9 +252,38 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       each change deliberately (Phase 5 scope) rather than reverse-engineering from black-box
       behavior probes now. Until then, vanilla `../tinymush` remains the working oracle with
       this caveat attached to every diff result.
-- [ ] `[...]` inline-eval + full substitution set gap check — extend `MushcodeParser` to
-      handle `[...]` forced evaluation and the full `%`-substitution set (`%q0-9`, `%v`, `%!`,
-      `%l`, `%c`, `%s`, etc.), validated against the oracle.
+- [x] `[...]` inline-eval + full substitution set gap check — done for the context/literal
+      subset that's oracle-testable without any functions yet: `[...]` forced evaluation,
+      `%n`/`%N` (was wrongly wired to newline; real semantics is invoker name, per
+      `eval.c`'s `case 'N'/'n': safe_name(cause,...)`), and the general uppercase-first-letter
+      rule (`%N` vs `%n` etc., `eval.c:855`) applied centrally in the parser rather than
+      per-substitution. `%q0-9` wired to the existing register array (unit-tested only --
+      no `setq()` yet to oracle-diff against). Found and fixed two pre-existing bugs along the
+      way: `(`/`{` closing-delimiter handling was off-by-one and failed to advance the parse
+      index past the delimiter, corrupting anything parsed after a function call or `{}` group
+      (e.g. `f(a)REST` produced garbage); `%r` emitted bare `\r` instead of `\r\n`.
+      **Deferred, catalogued gaps** (need infrastructure this spike doesn't have):
+      - `%0-9` (command/function args, `cargs` in `eval.c`) is **not** the same thing as
+        `%q0-9` (registers, `global_regs`) -- don't conflate them. `%0-9` needs a per-frame
+        arg holder pushed by `u()`, which doesn't exist yet, so it's untestable until then.
+      - `%#` (enactor/`cause`) and `%!` (executor/`player`) are distinct in C; jmush's single
+        `caller` field conflates them (harmless in `think`, where they coincide). Needs an
+        executor field once anything other than `think` exists.
+      - `%v`/`%=<attr>` (attribute read), `%o/%p/%s/%a` (gender pronouns, need a `SEX`
+        attribute), `%l` (location) all need the Phase 2 object/attribute model.
+      - `%_` (x-variables) needs a `vars_htab`-equivalent; `%c` (`curr_cmd`) needs Phase 3
+        command dispatch; `%|` needs piped-command output tracking.
+      - **`{...}` is not literal-with-braces-stripped-and-no-eval, as jmush currently
+        implements it.** Oracle probe of `a{literal %# here}b` returned
+        `a{literal #1 here}b` -- braces are *kept* in the output and substitutions still
+        evaluate inside; only function-call parsing (the `(` handling) is suppressed
+        (`eval.c:552-582`: recurses via `exec()` with `EV_FCHECK` cleared). Brace-stripping
+        itself is conditional on the caller's `EV_STRIP` flag, which doesn't exist in jmush at
+        all -- `{}` needs the eval-flags model (`EV_STRIP`/`EV_FCHECK`/`EV_NO_COMPRESS`/...)
+        before it can be fixed correctly, which is real Phase 1a scope ("full `eval.c`
+        semantics"), not this gap-check. The already-present-but-dormant `functionViable`
+        field in `MushcodeParser` was evidently meant for exactly the FCHECK-suppression half
+        of this.
 
 ### Phase 1a — Evaluator core + object-independent functions
 - [ ] Extend `MushcodeParser`/`Expression` to full `eval.c` semantics (substitutions, `[...]`,

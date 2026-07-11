@@ -11,6 +11,13 @@ public enum ContextExpressions implements Expression {
     public Value evaluateExpression(ExecutionContext context) {
       return Value.of(context.getCaller().getDbRefString());
     }
+  },
+
+  getCallerName {
+    @Override
+    public Value evaluateExpression(ExecutionContext context) {
+      return Value.of(context.getCaller().getName());
+    }
   };
 
   
