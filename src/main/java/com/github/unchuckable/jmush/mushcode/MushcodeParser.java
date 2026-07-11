@@ -37,6 +37,16 @@ public class MushcodeParser {
     // the '(' case below).
     int nameBoundary = 0;
 
+    // EV_FCHECK is a one-shot flag per eval.c invocation: the *first* unescaped '(' encountered
+    // (whose matching ')' is found) consumes it unconditionally -- whether that '(' turns out to
+    // name a real function or not -- and every subsequent '(' at this scan level is permanently
+    // literal until a fresh nested scan (a [...] block, a {...} block, or a function argument,
+    // each of which calls parse() recursively with its own local copy of this flag) re-enables
+    // it. Oracle-verified: "add(1,2)add(3,4)" -> "3add(3,4)", not "37" -- see eval.c:908 (no
+    // match found), :1012/:1086 (dispatch completed, success or error), all of which do
+    // `eval &= ~EV_FCHECK` before falling through to plain literal-character handling.
+    boolean functionCheckAvailable = flags.isFunctionCheckEnabled();
+
     int index = 0;
 
     // eval.c initializes at_space = 1, so a leading space is treated as an immediate
@@ -107,7 +117,7 @@ public class MushcodeParser {
         case '(':
           { // start of function
             // look for closing bracket
-            if (!flags.isFunctionCheckEnabled()) {
+            if (!functionCheckAvailable) {
               builder.append('(');
               break;
             }
@@ -145,6 +155,7 @@ public class MushcodeParser {
               MushFunctionHandler function = getFunction(functionName);
               if (function == null) {
                 builder.append('(');
+                functionCheckAvailable = false;
                 break;
               }
               List<Expression> parameters = getParameters(string, index + 1, endIndex, flags);
@@ -152,6 +163,7 @@ public class MushcodeParser {
               finishedExpressions.add(new FunctionExpression(function, parameters));
               index = endIndex;
               nameBoundary = finishedExpressions.size();
+              functionCheckAvailable = false;
             } else {
               // The name depends on a substitution/function result -- defer both name resolution
               // and argument parsing to evaluation time (see DynamicFunctionExpression).
@@ -166,6 +178,7 @@ public class MushcodeParser {
                   new DynamicFunctionExpression(this, nameExpression, rawArguments, flags));
               index = endIndex;
               nameBoundary = finishedExpressions.size();
+              functionCheckAvailable = false;
             }
             break;
           }

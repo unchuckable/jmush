@@ -1,0 +1,129 @@
+{
+  "notes": "Adversarial probes found by deliberately trying to break the parser/functions once side-effect functions (setq/setr) made evaluation order observable. Two real bugs found and fixed here: (1) EV_FCHECK is one-shot per scan -- only the first unescaped \u0027(\u0027 is ever eligible for function-call recognition, match or not; every subsequent \u0027(\u0027 at that scan level is permanently literal until a fresh [...]/{...}/argument scan (see MushcodeParser\u0027s functionCheckAvailable). (2) Value.aton() didn\u0027t recognize C99 strtod\u0027s NaN/Infinity/hex-float literal forms. Substitution/name-boundary and side-effect-ordering probes are also included since they were part of the same investigation, even though they didn\u0027t turn up bugs.",
+  "cases": [
+    {
+      "input": "add(1,2)add(3,4)",
+      "expected": "3add(3,4)"
+    },
+    {
+      "input": "add(1,2)[add(3,4)]",
+      "expected": "37"
+    },
+    {
+      "input": "add(1,2) add(3,4)",
+      "expected": "3 add(3,4)"
+    },
+    {
+      "input": "unknownfunc(1,2)add(3,4)",
+      "expected": "unknownfunc(1,2)add(3,4)"
+    },
+    {
+      "input": "add(1,2)unknownfunc(3,4)",
+      "expected": "3unknownfunc(3,4)"
+    },
+    {
+      "input": "cat(a)cat(b)",
+      "expected": "acat(b)"
+    },
+    {
+      "input": "switch(1,1,yes,no)switch(1,1,yes,no)",
+      "expected": "yesswitch(1,1,yes,no)"
+    },
+    {
+      "input": "sub(1,1)eq(0,0)",
+      "expected": "0eq(0,0)"
+    },
+    {
+      "input": "eq(NaN,0)",
+      "expected": "0"
+    },
+    {
+      "input": "add(Infinity,1)",
+      "expected": "Inf"
+    },
+    {
+      "input": "add(0x10,1)",
+      "expected": "17"
+    },
+    {
+      "input": "ad%bd(1,2)",
+      "expected": "ad d(1,2)"
+    },
+    {
+      "input": "a%%dd(1,2)",
+      "expected": "a%dd(1,2)"
+    },
+    {
+      "input": "switch(1,1,add,no)(1,2)",
+      "expected": "add(1,2)"
+    },
+    {
+      "input": "[setq(0,add)]%q0(1,2)(3,4)",
+      "expected": "3(3,4)"
+    },
+    {
+      "input": "[setq(0,123)]%q0(1,2)",
+      "expected": "123(1,2)"
+    },
+    {
+      "input": "[setq(0,ADD)]%q0(1,2)",
+      "expected": "3"
+    },
+    {
+      "input": "[setq(0,ad)][setq(1,d)]%q0%q1(2,3)",
+      "expected": "5"
+    },
+    {
+      "input": "[setq(0,add)]%q0(1)",
+      "expected": "#-1 TOO FEW ARGUMENTS"
+    },
+    {
+      "input": "add(  ,3)",
+      "expected": "3"
+    },
+    {
+      "input": "add(1,)",
+      "expected": "1"
+    },
+    {
+      "input": "mod(7,-0)",
+      "expected": "0"
+    },
+    {
+      "input": "div(-0,3)",
+      "expected": "0"
+    },
+    {
+      "input": "add(1\\,000,2)",
+      "expected": "3"
+    },
+    {
+      "input": "cat(setr(0,A),%q0,setr(0,B),%q0)",
+      "expected": "A A B B"
+    },
+    {
+      "input": "add(setr(0,10),setr(0,20))%q0",
+      "expected": "3020"
+    },
+    {
+      "input": "switch(3,[setr(0,P1)],skipA,[setr(0,P2)],skipB,3,hit,fallback)%q0",
+      "expected": "hitP2"
+    },
+    {
+      "input": "switch(1,1,[setr(0,W)]won,[setr(0,L)]lost)%q0",
+      "expected": "WwonW"
+    },
+    {
+      "input": "[setq(1,switch)]%q1(1,1,[setr(0,W)]won,[setr(0,L)]lost)%q0",
+      "expected": "WwonW"
+    },
+    {
+      "input": "switch(,,,yes,no)",
+      "expected": ""
+    },
+    {
+      "input": "switch(abc,X,y)",
+      "expected": ""
+    }
+  ]
+}

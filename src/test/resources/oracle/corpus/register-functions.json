@@ -1,0 +1,41 @@
+{
+  "notes": "setq()/setr() write the %q\u003cdigit\u003e register as a side effect. setq() returns \"\"; setr() returns the value itself. Only digit registers %q0-%q9 are modeled (see RegisterFunctions javadoc) -- setq(a,text)/setr(a,text) (letter-named extended registers) are deliberately excluded, matching the divergence documented for dynamic-function-names.json.",
+  "cases": [
+    {
+      "input": "setq(0,add)",
+      "expected": ""
+    },
+    {
+      "input": "setq(0,add)%q0",
+      "expected": "add"
+    },
+    {
+      "input": "setr(0,add)",
+      "expected": "add"
+    },
+    {
+      "input": "setr(0,add)%q0",
+      "expected": "addadd"
+    },
+    {
+      "input": "setr(0,1)",
+      "expected": "1"
+    },
+    {
+      "input": "setq(10,x)",
+      "expected": "#-1 INVALID GLOBAL REGISTER"
+    },
+    {
+      "input": "setr(10,x)",
+      "expected": "#-1 INVALID GLOBAL REGISTER"
+    },
+    {
+      "input": "setr()",
+      "expected": "#-1 FUNCTION (SETR) EXPECTS 2 ARGUMENTS"
+    },
+    {
+      "input": "setr(0)",
+      "expected": "#-1 FUNCTION (SETR) EXPECTS 2 ARGUMENTS"
+    }
+  ]
+}

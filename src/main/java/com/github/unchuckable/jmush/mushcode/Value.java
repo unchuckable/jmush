@@ -103,6 +103,16 @@ public class Value {
   private static final Pattern ATON_PREFIX =
       Pattern.compile("^\\s*[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?");
 
+  // C99 strtod (which aton()/atof() ultimately delegate to) also recognizes these three leading
+  // forms, none of which the plain decimal ATON_PREFIX above matches -- oracle-verified: e.g.
+  // eq(NaN,0) -> 0 (a real NaN compares unequal to everything, including itself), add(Infinity,1)
+  // -> Inf, add(0x10,1) -> 17 (hex, no exponent required despite the C99 grammar technically
+  // mandating one -- glibc's strtod accepts it).
+  private static final Pattern NAN_PREFIX = Pattern.compile("(?i)^\\s*[+-]?nan(\\([^)]*\\))?");
+  private static final Pattern INFINITY_PREFIX = Pattern.compile("(?i)^\\s*([+-]?)(infinity|inf)");
+  private static final Pattern HEX_FLOAT_PREFIX =
+      Pattern.compile("(?i)^\\s*([+-]?)0x([0-9a-f]*)\\.?([0-9a-f]*)(?:p([+-]?\\d+))?");
+
   /**
    * Matches {@code functions.c}'s {@code aton()} (which is {@code atof} when compiled with {@code
    * FLOATING_POINTS}, as production is): parses the longest leading numeric prefix and defaults to
@@ -112,6 +122,23 @@ public class Value {
    * add(12abc,3)} -> {@code 15}, {@code add(abc,3)} -> {@code 3}).
    */
   public double aton() {
+    if (NAN_PREFIX.matcher(value).find()) {
+      return Double.NaN;
+    }
+    Matcher infinityMatcher = INFINITY_PREFIX.matcher(value);
+    if (infinityMatcher.find()) {
+      return "-".equals(infinityMatcher.group(1))
+          ? Double.NEGATIVE_INFINITY
+          : Double.POSITIVE_INFINITY;
+    }
+    Matcher hexMatcher = HEX_FLOAT_PREFIX.matcher(value);
+    if (hexMatcher.find() && (!hexMatcher.group(2).isEmpty() || !hexMatcher.group(3).isEmpty())) {
+      double magnitude = hexDigitsToDouble(hexMatcher.group(2), hexMatcher.group(3));
+      if (hexMatcher.group(4) != null) {
+        magnitude *= Math.pow(2, Integer.parseInt(hexMatcher.group(4)));
+      }
+      return "-".equals(hexMatcher.group(1)) ? -magnitude : magnitude;
+    }
     Matcher matcher = ATON_PREFIX.matcher(value);
     if (!matcher.find()) {
       return 0.0;
@@ -121,6 +148,20 @@ public class Value {
     } catch (NumberFormatException e) {
       return 0.0;
     }
+  }
+
+  private static double hexDigitsToDouble(String intDigits, String fracDigits) {
+    double magnitude = 0;
+    for (int i = 0; i < intDigits.length(); i++) {
+      magnitude = magnitude * 16 + Character.digit(intDigits.charAt(i), 16);
+    }
+    double fracValue = 0;
+    double place = 1.0 / 16;
+    for (int i = 0; i < fracDigits.length(); i++) {
+      fracValue += Character.digit(fracDigits.charAt(i), 16) * place;
+      place /= 16;
+    }
+    return magnitude + fracValue;
   }
 
   private static final Pattern ATOI_PREFIX = Pattern.compile("^\\s*[+-]?\\d+");

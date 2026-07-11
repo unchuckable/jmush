@@ -106,7 +106,13 @@ public class MushcodeParserTest {
 
     // trailing text after the closing paren must not be swallowed/reparsed
     assertEquals("F(a)REST", parser.parse("f(a)REST").evaluateExpression(ctx).toString());
-    assertEquals("F(a)F(b)", parser.parse("f(a)f(b)").evaluateExpression(ctx).toString());
+
+    // EV_FCHECK is one-shot per scan: only the *first* '(' is ever eligible to be recognized as
+    // a function call, regardless of whether it matches -- a second, unbracketed f(...) right
+    // after is always left literal (oracle-verified: e.g. "add(1,2)add(3,4)" -> "3add(3,4)", not
+    // "37"; wrapping the second call in [...] starts a fresh scan and re-enables it).
+    assertEquals("F(a)f(b)", parser.parse("f(a)f(b)").evaluateExpression(ctx).toString());
+    assertEquals("F(a)F(b)", parser.parse("f(a)[f(b)]").evaluateExpression(ctx).toString());
   }
 
   @Test
