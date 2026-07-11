@@ -73,6 +73,31 @@ public class CompatibilityOracleTest {
         assertMatchesOracle("[%n]");
     }
 
+    @Test
+    void literalGroupingMatchesOracle() throws IOException {
+        // braces are kept in the output, and %-substitutions still evaluate inside them.
+        // (Function-call suppression inside {} can't be oracle-diffed yet -- jmush has no
+        // ported functions to compare against a real one; see MushcodeParserTest for a
+        // stub-function unit test of that half.)
+        assertMatchesOracle("a{literal %# here}b");
+        assertMatchesOracle("x{%#}y");
+    }
+
+    @Test
+    void spaceStrippingMatchesOracle() throws IOException {
+        // leading/trailing spaces are fully removed, not merely compressed to one
+        // (eval.c: at_space starts true, and a trailing "still at_space" deletes the
+        // last written char) -- interior runs still compress to a single space.
+        assertMatchesOracle("a b ");
+        assertMatchesOracle(" a b");
+        assertMatchesOracle("a  b");
+        assertMatchesOracle("   ");
+        assertMatchesOracle("a[%#] ");
+        assertMatchesOracle("a %#");
+        assertMatchesOracle("%#  ");
+        assertMatchesOracle(" %#");
+    }
+
     private void assertMatchesOracle(String mushcode) throws IOException {
         MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
         ExecutionContext ctx = new ExecutionContext()

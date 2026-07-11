@@ -21,26 +21,34 @@ public class MushcodeParser {
   }
 
   public Expression parse(String string) {
+    return parse(string, EvalFlags.DEFAULT);
+  }
+
+  public Expression parse(String string, EvalFlags flags) {
     List<Expression> finishedExpressions = new ArrayList<>();
     StringBuilder builder = new StringBuilder();
 
     int index = 0;
-    boolean functionViable = true;
 
-    boolean lastWasSpace = false;
-    
+    // eval.c initializes at_space = 1, so a leading space is treated as an immediate
+    // repeat and fully suppressed (not just compressed to one) -- see eval.c:444.
+    boolean lastWasSpace = true;
+
     while (index < string.length()) {
       char thisChar = string.charAt(index);
 
       if ( thisChar == ' ' ) {
-        if (! lastWasSpace ) {
-          builder.append(' ');
+        if (flags.isSpaceCompressionEnabled() && lastWasSpace) {
+          index++;
+          continue;
         }
+        builder.append(' ');
         lastWasSpace = true;
         index++;
         continue;
       }
-      
+      lastWasSpace = false;
+
       switch (string.charAt(index)) {
         case '\\':
           { // escape char
@@ -52,25 +60,36 @@ public class MushcodeParser {
           }
 
         case '{':
-          {
+          { // literal grouping: braces are kept in the output (unless EV_STRIP), contents
+            // still have %-substitutions evaluated but not function calls (eval.c:552-582)
             int endIndex = StringUtils.findIndexOf('}', string, index + 1);
             if (endIndex == -1) {
               builder.append('{');
             } else {
-              builder.append(string.substring(index + 1, endIndex));
+              if (!flags.isStripEnabled()) {
+                builder.append('{');
+              }
+              flushBuilder(builder, finishedExpressions);
+              EvalFlags innerFlags = flags.withFunctionCheck(false).withStrip(false);
+              finishedExpressions.add(parse(string.substring(index + 1, endIndex), innerFlags));
+              if (!flags.isStripEnabled()) {
+                builder.append('}');
+              }
               index = endIndex;
             }
             break;
           }
 
         case '[':
-          { // forced evaluation
+          { // forced evaluation: function checking is always forced on inside [...],
+            // regardless of the ambient flags (eval.c:527-551, "eval | EV_FCHECK | EV_FMAND")
             int endIndex = StringUtils.findIndexOf(']', string, index + 1);
             if (endIndex == -1) {
               builder.append('[');
             } else {
               flushBuilder(builder, finishedExpressions);
-              finishedExpressions.add(parse(string.substring(index + 1, endIndex)));
+              EvalFlags innerFlags = flags.withFunctionCheck(true);
+              finishedExpressions.add(parse(string.substring(index + 1, endIndex), innerFlags));
               index = endIndex;
             }
             break;
@@ -79,7 +98,7 @@ public class MushcodeParser {
         case '(':
           { // start of function
             // look for closing bracket
-            if (!functionViable) {
+            if (!flags.isFunctionCheckEnabled()) {
               builder.append('(');
               break;
             }
@@ -93,7 +112,7 @@ public class MushcodeParser {
                 builder.append('(');
                 break;
               }
-              List<Expression> parameters = getParameters(string, index + 1, endIndex);
+              List<Expression> parameters = getParameters(string, index + 1, endIndex, flags);
               builder.setLength(0);
               finishedExpressions.add(new FunctionExpression(function, parameters));
               index = endIndex;
@@ -155,6 +174,12 @@ public class MushcodeParser {
       index++;
     }
 
+    // eval.c:1123-1131 -- if the string ended on a space eligible for compression, that
+    // trailing space is deleted entirely (not merely compressed to one).
+    if (flags.isSpaceCompressionEnabled() && lastWasSpace && builder.length() > 0) {
+      builder.setLength(builder.length() - 1);
+    }
+
     if (finishedExpressions.isEmpty()) {
       return new ConstantExpression(Value.of(builder.toString()));
     } else {
@@ -169,16 +194,16 @@ public class MushcodeParser {
     return this.functionMap.get(name.toLowerCase());
   }
 
-  private List<Expression> getParameters(String string, int startIndex, int endIndex) {
+  private List<Expression> getParameters(String string, int startIndex, int endIndex, EvalFlags flags) {
     List<Expression> parameters = new ArrayList<>();
     int currentIndex = startIndex;
     int nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);
     while (nextIndex != -1) {
-      parameters.add(parse(string.substring(currentIndex, nextIndex)));
+      parameters.add(parse(string.substring(currentIndex, nextIndex), flags));
       currentIndex = nextIndex + 1;
       nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);
     }
-    parameters.add(parse(string.substring(currentIndex, endIndex)));
+    parameters.add(parse(string.substring(currentIndex, endIndex), flags));
     return parameters;
   }
 

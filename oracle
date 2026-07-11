@@ -1,10 +1,17 @@
 #!/bin/sh
-# Probes a running TinyMUSH oracle server with a mushcode snippet.
-# Usage: ./oracle 'add(2,3)'
+# Probes a running TinyMUSH oracle server with one or more mushcode snippets, all in one
+# connection/session. Usage: ./oracle 'add(2,3)' '%n' '[%#]'
 # Connection defaults to 127.0.0.1:6250 as #1/potrzebie; override via
 # ORACLE_HOST/ORACLE_PORT/ORACLE_USER/ORACLE_PASS.
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
-mvn -q test-compile
+# Skip recompiling unless a source file changed since the last build (mvn's own up-to-date
+# check still costs ~1s just to start the JVM and evaluate the project model).
+STAMP="target/.oracle-build-stamp"
+if [ ! -f "$STAMP" ] || [ -n "$(find src/main/java src/test/java -newer "$STAMP" -name '*.java' 2>/dev/null)" ]; then
+  mvn -q test-compile
+  mkdir -p target
+  touch "$STAMP"
+fi
 java -cp target/classes:target/test-classes com.github.unchuckable.jmush.oracle.OracleCli "$@"

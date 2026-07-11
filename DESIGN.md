@@ -288,6 +288,25 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 ### Phase 1a — Evaluator core + object-independent functions
 - [ ] Extend `MushcodeParser`/`Expression` to full `eval.c` semantics (substitutions, `[...]`,
       `%q0-9` registers, iteration state).
+      **Progress so far**: added `EvalFlags` (`functionCheck`/`strip`/`compressSpaces`,
+      modeling `EV_FCHECK`/`EV_STRIP`/absence-of-`EV_NO_COMPRESS`), threaded through
+      `parse()`, replacing the old dead `functionViable` field. Fixed `{...}` to match real
+      semantics (braces kept unless `EV_STRIP`, substitutions still evaluate inside, function
+      calls suppressed -- oracle-verified) and fixed leading/trailing space handling: spaces
+      at the very start/end of a parsed string are fully removed, not merely compressed to
+      one (`eval.c:444` inits `at_space=1`; `eval.c:1123-1131` deletes the last written char
+      if still `at_space` at the end) -- also oracle-verified, including combined with `[...]`
+      substitutions. Also fixed a latent bug found along the way: `lastWasSpace` was only
+      ever set `true`, never reset on non-space content, so a space immediately after a
+      substitution/bracket was wrongly treated as a compression duplicate (e.g.
+      `"a{literal %# here}b"` lost the space before "here"). Not modeled: `EV_FMAND` (needs
+      the `Value` error-message system), `EV_NO_LOCATION` (needs `%l`), `EV_EVAL`/`EV_TOP`/
+      `EV_NOTRACE`/`EV_STRIP_TS`/`EV_STRIP_LS`/`EV_STRIP_ESC`/`EV_STRIP_AROUND` (narrower
+      call-site concerns, not general parse-time semantics, deferred until something needs
+      them). Also left unverified: escaped-space interaction with the trailing-strip rule
+      (`'a\ '` appeared to lose its escaped trailing space via the oracle, contradicting a
+      literal reading of `eval.c`'s escape handling -- plausibly `think`-command-line
+      trimming rather than evaluator behavior; not chased further, low real-world impact).
 - [ ] Add `Value.asInt()`/`asDouble()`/`asDbRef()` (each with a default and a
       custom-error-message overload, throwing `MushValueException`) and `ofInt`/`ofDouble`/
       `ofDbRef` factories, matching TinyMUSH's exact numeric formatting/error-string
