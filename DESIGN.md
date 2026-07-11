@@ -61,6 +61,31 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   detects the disconnect, waits for/launches the new backend, resumes forwarding — the client's
   TCP connection to the relay never drops. This avoids FFM/native syscalls entirely and mirrors
   the role TinyMUSH's own optional `concentrator` process already plays.
+  - **Session reassociation**: surviving the TCP layer isn't enough — the new backend must also
+    re-learn *who is logged in* on each connection, or players land back at a login prompt
+    (C preserves this via `dump_restart_db`'s per-`DESC` metadata). The relay therefore speaks a
+    small **framed protocol** on the local channel — not pure byte passthrough: a per-connection
+    header (**session key**, client IP/hostname, connect timestamp) followed by framed data plus
+    a few control messages. Control frames are needed because raw passthrough can't express the
+    difference between "`@boot` this player → close their client TCP" and "backend restarting →
+    hold everyone" — so at minimum: DATA, CLOSE (drop the client), RESTART-PENDING (hold and
+    buffer). On `@restart`, the backend writes its per-session state (player dbref, connect
+    time, command count — the `restart.db` analogue) keyed by session key; the new backend reads
+    it and re-binds each session as the relay reconnects it.
+  - **Crash semantics**: if the backend dies *without* writing the session-state file (crash,
+    not clean `@restart`), the relay holds the TCP connections and reconnects them to the new
+    backend as unauthenticated sessions — players land at the login prompt but never lose the
+    TCP connection. Defined behavior, deliberately weaker than clean restart.
+  - **Telnet IAC ownership**: the **backend** owns telnet protocol handling (IAC negotiation,
+    GOAHEAD prompts) in both modes — it must implement it anyway for its direct-telnet dev port,
+    and having exactly one implementation avoids drift. The relay stays telnet-agnostic: it
+    frames and forwards opaque bytes. (Only exception if ever needed: MCCP compression, which
+    would have to live relay-side since it wraps the client-facing stream — decide if/when
+    MCCP turns out to be actually used.)
+  - **The relay is optional**: the backend listens on **two ports** — a localhost-bound port
+    speaking the relay protocol, and a plain-telnet port for development/testing without the
+    relay. No sniffing/auto-detection; tests pick the layer they target. Direct connections
+    simply don't survive `@restart`, which is correct (that's the relay's whole job).
 
 - **Single game-logic thread for all game-state mutation.** Mushcode's semantics implicitly
   assume the original single-threaded execution model (a command/queued action runs to
@@ -70,8 +95,17 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   `BlockingQueue`. Consequence: game-state structures (attribute cache, object graph,
   `$command` index) are only ever touched by the one thread, so plain `HashMap`s are correct
   and sufficient — no `ConcurrentHashMap` needed outside the narrow I/O hand-off boundary.
-  Snapshot dumps and (initially) SQL calls run on this same thread, matching the original's
-  actual blocking behavior rather than changing timing semantics softcode may depend on.
+  SQL calls run (initially) on this same thread, matching the original's blocking behavior
+  rather than changing timing semantics softcode may depend on — but the SQL interface is
+  defined async-capable from the start, since one slow query freezing every player is the
+  single biggest availability wart worth being able to fix post-cutover.
+  Note on dumps: the C server does **not** block during database dumps — `fork_and_dump`
+  (`bsd.c`) forks so a copy-on-write child serializes while the parent keeps playing. The JVM
+  can't fork, so jmush starts with **pause-and-dump** (serialize on the game thread; at ~30k
+  objects likely a sub-second pause) and *measures* the real pause with production-sized data;
+  if noticeable, upgrade to **copy-then-dump** (fast in-memory deep copy on the game thread,
+  background thread serializes the copy). The dump goes through the persistence interface so
+  that upgrade touches one place.
 
 - **Persistence**: in-memory object graph with periodic full flatfile-style snapshot dump/load
   (object-per-record, like `db_rw.c`) — no GDBM, no embedded KV store, no incremental journal.
@@ -87,6 +121,14 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   snippets/command sequences against both the compiled `../tinymush` binary and `jmush`,
   diffing observable output. First-class, early deliverable — reading `eval.c`/`functions.c`
   alone will not surface the undocumented quirks 27 years of live softcode depends on.
+  **Nondeterminism handling is part of the harness from day one**, or it drowns in false
+  diffs: a normalization layer (mask timestamps and other legitimately-varying output), a
+  fixed-seed/shape-assertion convention for `rand`/`shuffle`/`pickrand`-style functions, and
+  identical object-graph construction in both servers for tests of traversal functions.
+  **List ordering is a compatibility surface, not an artifact**: the live softcode may depend
+  on the order `lcon()`/`lexits()`/`lattr()` return (C's contents/exits are linked lists with
+  specific insertion semantics), so jmush replicates C's ordering and the oracle compares
+  these outputs exactly, not as sets.
 
 - **Attribute compilation cache**: compiled `Expression` trees (and later, compiled Lua
   closures) cached per `(dbref, attribute name, version)`, invalidated on attribute write —
@@ -129,6 +171,29 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   Java exceptions that's actually expensive, leaving throw/catch here close to as cheap as a
   plain `return`.
 
+- **Evaluator limits are compatibility surface, modeled in the core (Phase 1a), not bolted on.**
+  Two families, both of which 27-year-old softcode can silently depend on:
+  - **Output buffer truncation**: C truncates everywhere at `LBUF_SIZE` (8000 bytes —
+    `alloc.h`, enforced in `eval.c`'s buffer accumulation and function output). Java's
+    unbounded `String`s won't replicate this unless deliberate: jmush enforces the limit at
+    the same points C does (function output, substitution expansion, concat accumulation),
+    centrally (e.g. in `ConcatExpression`/function-return paths), not scattered ad hoc. The
+    limit is **configurable, default 8000** — compatibility mode is the only mode until
+    cutover succeeds, but raising it later must not require code changes.
+  - **Invocation/recursion limits**: `func_invk_lim`/`func_nest_lim` with C's exact error
+    strings (`#-1 FUNCTION RECURSION LIMIT EXCEEDED`, `#-1 FUNCTION INVOCATION LIMIT
+    EXCEEDED`, per `eval.c`), checked in `FunctionExpression` evaluation. **Scoping matters
+    and is per-command, not per-evaluation**: in C these are `mudstate.func_invk_ctr`/
+    `func_nest_lev`, reset once per command in `process_command` and shared across every
+    nested `u()`/`eval` within that command — a fresh budget per nested evaluation would
+    diverge from softcode that relies on hitting/avoiding the limit. Likewise `%q0-9`
+    registers are command-global (`mudstate.global_regs`), shared across nested evaluations
+    and *snapshotted into queue entries* by `cque.c` for `@wait`-style delayed execution.
+    Consequence for the design: one `ExecutionContext` (or a shared command-scope object it
+    references) must be threaded through all nested evaluations of a command, with `%q`
+    snapshot/restore semantics for queued entries. (The instruction-budget hook planned for
+    future Lua is the same idea; mushcode needs it first.)
+
 - **Built-in functions as annotated, self-registering providers.** A `@MushFunction(name=...,
   minArgs=..., maxArgs=...)` annotation on static methods in per-category provider classes
   (`StringFunctions`, `MathFunctions`, `ObjectFunctions`, ...), mirroring `functions.c`'s
@@ -165,9 +230,21 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 ### Phase 0 — Risk spikes (must precede all else)
 - [ ] Relay/backend restart spike — accept a client connection, forward to a backend over
       loopback TCP, kill and relaunch the backend, confirm the client TCP connection never
-      drops and output resumes cleanly.
-- [ ] Compatibility oracle setup — get `../tinymush` building and runnable locally, build a
-      driver that sends raw command/mushcode input over telnet and captures output.
+      drops and output resumes cleanly. Includes the framed session-key relay protocol
+      (header + DATA/CLOSE/RESTART-PENDING frames) and a minimal session-reassociation
+      round-trip, so the "player stays logged in" half of `@restart` is proven, not just the
+      TCP half.
+- [ ] Compatibility oracle setup — get `../tinymush` building and runnable locally, **run
+      under the production `netmush.conf`** (not defaults — config gates evaluator limits,
+      space compression, and more), build a driver that sends raw command/mushcode input over
+      telnet and captures output. Includes the nondeterminism layer from day one: output
+      normalization (timestamps etc.), fixed-seed/shape-assertion conventions for random
+      functions, identical object-graph setup on both sides for traversal-order tests.
+- [ ] **Validate that vanilla 3.0-p4 is actually the spec**: the Denver mods may patch core
+      string/output handling (their "ANSI fix"), not just add functions. Run a probe corpus
+      against the *live production server* and diff against local vanilla `../tinymush` — any
+      divergence found now redefines the oracle target; found in Phase 5, it invalidates green
+      diffs from every prior phase.
 - [ ] `[...]` inline-eval + full substitution set gap check — extend `MushcodeParser` to
       handle `[...]` forced evaluation and the full `%`-substitution set (`%q0-9`, `%v`, `%!`,
       `%l`, `%c`, `%s`, etc.), validated against the oracle.
@@ -182,6 +259,19 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       (`MushErrors`).
 - [ ] Design ANSI-aware string handling (visible-length-aware `STRLEN`/`MID`/etc.) as part of
       the `Value`/evaluator core.
+- [ ] Enforce the LBUF output-truncation limit (configurable, default 8000 bytes) centrally at
+      the same points C enforces it (function output, substitution expansion, concat
+      accumulation), verified against the oracle with over-limit softcode.
+- [ ] Implement `func_invk_lim`/`func_nest_lim` invocation/recursion limits with C's exact
+      error strings — **per-command scope** shared across nested evaluations (see Decisions),
+      with `%q0-9` registers likewise command-global and snapshot/restorable for queueing.
+- [ ] Port `wild.c` wildcard/regex matching semantics (case-insensitivity rules, `*`-group
+      capture into `%0`-`%9`, regexp mode) with oracle tests — used by `switch()`, `match()`,
+      `lattr()` patterns, and later by the Phase 3 `$command` index.
+- [ ] Configuration layer compatible with `netmush.conf` directives (`conf.c` equivalent) —
+      hundreds of `mudconf` options gate behavior softcode depends on (limits, master room,
+      zones, space compression, queue/money settings). At minimum: parse the production conf
+      file and expose typed access; individual options get honored as their subsystems land.
 - [ ] Build the attribute-compilation cache + invocation counters.
 - [ ] Stand up the `@MushFunction` annotation + `FunctionRegistry`, including the
       arity-specific functional interfaces (`MushFunction1`, `MushFunction2`, ...) and
@@ -192,32 +282,90 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 
 ### Phase 2 — Object model & persistence
 - [ ] Extend `MushObject`/`Flag`/`Power` into a full object graph: rooms/exits/players,
-      attribute inheritance, locks (`boolexp.c` equivalent) — check `db.h`/`object.c` for exact
-      structure.
-- [ ] Persistence interface + in-memory graph + periodic flatfile-style snapshot dump/load,
-      close enough to `db_rw.c`'s format to import the live production database if required.
+      attribute inheritance (`@parent` chains), zones, locks (`boolexp.c` equivalent) — check
+      `db.h`/`object.c` for exact structure. Contents/exits lists must replicate C's insertion
+      -order semantics (softcode may depend on `lcon()`/`lexits()` ordering).
+- [ ] Full attribute model — richer than a name→string map: each attribute is a numbered
+      entry carrying **(name/number, owner, `AF_*` flags, text)**, with the fixed built-in
+      attribute table (`attrs.h`) plus the user-defined attribute name table (`vattr.c`
+      equivalent). Attribute flags change real behavior (`AF_PRIVATE` alters `@parent`
+      inheritance; `AF_REGEXP`/`AF_NOPROG` alter `$command` scanning) and owner/flags are
+      encoded inline in the flatfile — required for both correct db import and correct
+      inheritance/matching.
+- [ ] Persistence interface + in-memory graph + snapshot dump/load, close enough to
+      `db_rw.c`'s format to import the live production database if required. Dump strategy:
+      pause-and-dump on the game thread first, measure the real pause with production-sized
+      data, upgrade to copy-then-dump behind the same interface only if noticeable.
+- [ ] Live-database import path: the production server likely stores attributes in GDBM, not
+      inline — use the C server's own `dbconvert`/unload tooling to flatten to a pure flatfile
+      first, so jmush never reads GDBM.
 - [ ] Confirm/handle live database text encoding (likely Latin-1 or 8-bit ASCII, not UTF-8).
 - [ ] Invocation-counter persistence riding along with the snapshot.
+
+### Milestone 0 — Walking skeleton (minimal connectable demo)
+Goal: connect, create a character, log into a single Limbo room, `look`, `say`, quit — built on
+the *real* evaluator (Phase 1a) and *real* object model/persistence (Phase 2), not a throwaway
+stand-in, so nothing here gets rewritten later. Deliberately narrow on breadth: only the
+handful of commands needed for a minimal experience, not the full command table.
+- [ ] Minimal backend connection handling on top of the Phase 0 relay/backend split
+      (virtual-thread-per-connection feeding the single game-logic thread) — a small subset of
+      what full Phase 3 networking will grow into, not a separate throwaway listener.
+- [ ] A handful of hardcoded command handlers: `create <name> <password>`, `connect <name>
+      <password>`, `look`, `say <message>`, `quit` — using the real `MushObject`/room/player
+      model from Phase 2 and the real evaluator from Phase 1a for attribute text (e.g. `@desc`).
+- [ ] Outbound fan-out: `notify`-style room broadcast (game thread → per-connection output
+      queues), so `say` is visible from other connections — the outbound half of the I/O
+      boundary, not just the inbound command path.
+- [ ] End-to-end manual test: telnet in, create a character, log in, `look`, `say`, see it from
+      a second connection, `quit`.
 
 ### Phase 1b — Object-dependent functions
 - [ ] Port remaining built-in functions that need the object graph (`LOC`, `CONTENTS`, `EXITS`,
       `LATTR`, lock/permission-checking functions, etc.), verified against the oracle.
+- [ ] `@function` user-defined global functions: a mutable, softcode-managed resolution layer
+      on top of the built-in `FunctionRegistry` (the registry must not be designed as
+      immutable) — softcode-defined functions resolve alongside the ~300 built-ins.
 
-### Phase 3 — Command dispatch & networking
-- [ ] Command table modeled on `command.c`'s `CMDENT`, dispatched via hash map/trie.
-- [ ] `$command:` pattern index built on the attribute-compilation cache.
-- [ ] Backend connection handling (virtual-thread-per-connection) replacing `bsd.c`'s
-      `select()` loop; connect screens/text file serving (`file_c.c` equivalent).
-- [ ] Harden the Phase 0 relay spike into the real always-up front door (telnet IAC handling,
-      site bans, output buffering across backend restarts); wire `@restart` through it.
+### Phase 3 — Command dispatch & networking (full scope)
+- [ ] Command table modeled on `command.c`'s `CMDENT`, dispatched via hash map/trie, growing
+      Milestone 0's five hardcoded handlers into the full ~230-command table.
+- [ ] Replicate `process_command`'s exact match-precedence order, oracle-tested: prefix
+      tokens → HOME → built-in table → exits (`goto`) → master-room exits → enter/leave
+      aliases → `$commands` on self/contents/location/inventory → local-master and zone
+      checks → master room → `huh`. Softcode that shadows a built-in name or an exit depends
+      on this exact order.
+- [ ] `$command:` pattern index built on the attribute-compilation cache — including the
+      **master-room global scan** and zone-object scopes, not just room contents/exits (huge
+      swaths of softcode-defined commands live in the master room and won't fire without it).
+- [ ] Timer subsystem (`timer.c` equivalent) on the game-logic thread's scheduler: periodic
+      dump trigger, idle-timeout check/booting, `do_dbck` consistency pass, the **`@cron`
+      scheduler**, and **`A_STARTUP` attribute execution at boot** — `@cron` and `@startup`
+      are confirmed heavily used on the production server, so these are core scope, not
+      optional extras.
+- [ ] Full backend connection handling replacing `bsd.c`'s `select()` loop, owning all telnet
+      IAC negotiation/GOAHEAD (see Decisions: the relay stays telnet-agnostic); connect
+      screens/text file serving (`file_c.c` equivalent).
+- [ ] Login-flow semantics beyond the connect screen: guest logins (`make_guest`,
+      `guest_prefix`, per-site guest bans), create-at-login, registration/badsite handling
+      (`netcommon.c`), and indexed help/news file serving (`help.c`).
+- [ ] Harden the Milestone 0 relay/backend usage into the real always-up front door (site
+      bans, output buffering across backend restarts, CLOSE/RESTART-PENDING control-frame
+      handling); wire `@restart` through it.
 - [ ] Determine and implement telnet protocol extensions actually needed (MCCP/MXP/GMCP/NAWS/
       MSSP) based on real client usage.
 - [ ] Design and implement queued/scheduled command mechanism (`@wait`/semaphores, `cque.c`
       equivalent) feeding back into the single game-logic thread, preserving TinyMUSH's
-      queue-draining order guarantees.
+      queue-draining order guarantees. (Queue state is not preserved across `@restart` — the C
+      server's `restart.db` doesn't preserve `cque` either, so this matches.)
+- [ ] Comsys/`@channel` system (`comsys.c` equivalent) — has its own persisted state
+      (`comsys.db` analogue) riding alongside the object-graph snapshot, not inside it.
+- [ ] `@mail` system (`mail.c` equivalent) — likewise its own persisted state alongside the
+      snapshot.
 
 ### Phase 4 — SQL integration
-- [ ] JDBC-backed `@sql`/softcode SQL functions replacing `db_mysql.c`/`db_msql.c`.
+- [ ] JDBC-backed `@sql`/softcode SQL functions replacing `db_mysql.c`/`db_msql.c` — blocking
+      on the game thread initially (matching C's timing behavior), but behind an
+      async-capable interface so non-blocking mode is possible post-cutover.
 
 ### Phase 5 — Local mods & cutover
 - [ ] Reimplement extra local functions beyond vanilla 3.0-p4 (Denver mods + any others found,
@@ -256,6 +404,12 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   compatibility spec — it lets Phase 1/1b function-porting be prioritized by real usage instead
   of guesswork, and is the most reliable way to find local-mod functions beyond
   `denver-functions.txt`.
+- **Is vanilla 3.0-p4 actually the spec?** The Denver mods may patch core behavior (their
+  "ANSI fix" suggests string/output changes), not just add functions. Until the Phase 0 probe
+  (live server vs. local vanilla) says otherwise, every oracle result carries this caveat.
+  Locating the production source tree or its patch set would settle it outright.
+- A copy of the production `netmush.conf` is needed early — the oracle must run under it, and
+  the Phase 1a config layer parses it.
 - Is importing/migrating the live production database a hard requirement, or is a fresh start
   acceptable? Affects how strict Phase 2's flatfile-format compatibility needs to be.
 - Deployment environment constraints (OS, existing process-supervision tooling) that should
@@ -263,8 +417,8 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 - **ANSI color codes**: embedded ANSI escapes in output/attributes (see `denver-functions.txt`'s
   "ANSI fix") need visible-length-aware handling in string functions (`STRLEN`/`MID`/etc.).
 - **Telnet protocol extensions actually in use** by real player clients (MCCP, MXP, GMCP, NAWS,
-  MSSP) — determines how much protocol surface the Phase 3 relay actually needs versus plain
-  byte passthrough.
+  MSSP) — determines how much protocol surface Phase 3 needs. Backend owns all of these except
+  MCCP, which — if actually used — would have to live relay-side (see Decisions).
 - **Queued/scheduled command semantics** (`@wait`, semaphores, `cque.c`) — needs an explicit
   design for how delayed actions re-enter the single game-logic thread while preserving
   TinyMUSH's queue-draining order guarantees, which softcode may depend on.
@@ -273,6 +427,10 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 - **Cutover operational expectations**: acceptable downtime for the final switch, and the
   rollback plan (e.g. keep the C server's data directory untouched and ready to relaunch) if
   something breaks post-cutover.
+- **Numeric formatting fidelity**: C's `fval()` output rules (trailing-zero trimming,
+  `%.6f`-style float formatting, integer overflow behavior, `#-1 DIVIDE BY ZERO` and friends)
+  differ materially from Java's default double→string conversion — treat as its own dedicated
+  oracle target within Phase 1a's `Value`/math-function work, not an incidental detail.
 
 ## Verification approach
 
