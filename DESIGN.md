@@ -339,10 +339,21 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       zones, space compression, queue/money settings). At minimum: parse the production conf
       file and expose typed access; individual options get honored as their subsystems land.
 - [ ] Build the attribute-compilation cache + invocation counters.
-- [ ] Stand up the `@MushFunction` annotation + `FunctionRegistry`, including the
+- [x] Stand up the `@MushFunction` annotation + `FunctionRegistry`, including the
       arity-specific functional interfaces (`MushFunction1`, `MushFunction2`, ...) and
       `MethodHandle`/`LambdaMetafactory`-based adapter generation for distinct-parameter
-      function signatures.
+      function signatures. The pre-existing raw functional interface (previously named
+      `MushFunction`) was renamed to `MushFunctionHandler` to free up `@MushFunction` for the
+      annotation, per the spec's naming. `FunctionRegistry` handles two method shapes:
+      `(ExecutionContext, Value, Value, ...)` for fixed-arity functions (adapted via
+      `MushFunctionN` + `LambdaMetafactory`) and `(ExecutionContext, List<Value>)` for
+      variadic ones (adapted directly to `MushFunctionHandler`, since the shapes already
+      match). Wraps every function with generic min/max arg-count validation and
+      `MushValueException` -> `Value` conversion. First three real functions ported as a
+      proof of the whole pipeline: `add()` (variadic), `sub()` (2-arg), `abs()` (1-arg) --
+      all use the new `Value.aton()` lenient parser (not the strict `asDouble()`), oracle
+      -verified including the atof-style leniency (`add(12abc,3)` -> `15`,
+      `add(abc,3)` -> `3`).
 - [ ] Port string/math/list functions that don't touch the object graph, each verified against
       the oracle.
 

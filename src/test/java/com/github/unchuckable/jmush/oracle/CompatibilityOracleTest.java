@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.util.Collections;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.MushcodeParser;
+import com.github.unchuckable.jmush.mushcode.expressions.FunctionRegistry;
 
 /**
  * Differential test: evaluates a corpus of mushcode snippets against both jmush and a
@@ -98,8 +98,21 @@ public class CompatibilityOracleTest {
         assertMatchesOracle(" %#");
     }
 
+    @Test
+    void mathFunctionsMatchOracle() throws IOException {
+        assertMatchesOracle("add(12,3)");
+        assertMatchesOracle("add(10,5,3)");
+        assertMatchesOracle("add(abc,3)");
+        assertMatchesOracle("add(12abc,3)");
+        assertMatchesOracle("sub(10,3)");
+        assertMatchesOracle("sub(abc,3)");
+        assertMatchesOracle("abs(-5)");
+        assertMatchesOracle("abs(-5.5)");
+        assertMatchesOracle("abs(abc)");
+    }
+
     private void assertMatchesOracle(String mushcode) throws IOException {
-        MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+        MushcodeParser parser = new MushcodeParser(FunctionRegistry.build());
         ExecutionContext ctx = new ExecutionContext()
                 .withCaller(new MushObject().withName(CALLER_NAME).withDbRefString(CALLER_DBREF));
         String jmushResult = parser.parse(mushcode).evaluateExpression(ctx).toString();

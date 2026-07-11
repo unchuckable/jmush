@@ -1,5 +1,8 @@
 package com.github.unchuckable.jmush.mushcode;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /**
  * Immutable wrapper around mushcode's string-typed values -- matching the C reference,
  * where every function call parses string input and formats string output; there is no
@@ -95,6 +98,29 @@ public class Value {
       }
     }
     return dbRefCache;
+  }
+
+  private static final Pattern ATON_PREFIX =
+      Pattern.compile("^\\s*[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?");
+
+  /**
+   * Matches {@code functions.c}'s {@code aton()} (which is {@code atof} when compiled with
+   * {@code FLOATING_POINTS}, as production is): parses the longest leading numeric prefix
+   * and defaults to {@code 0.0} on anything that doesn't even start looking like a number --
+   * never throws. Deliberately separate from the strict, throwing {@link #asDouble()}: many
+   * arithmetic functions (e.g. {@code add()}/{@code sub()}) are this lenient by design,
+   * oracle-verified (e.g. {@code add(12abc,3)} -> {@code 15}, {@code add(abc,3)} -> {@code 3}).
+   */
+  public double aton() {
+    Matcher matcher = ATON_PREFIX.matcher(value);
+    if (!matcher.find()) {
+      return 0.0;
+    }
+    try {
+      return Double.parseDouble(matcher.group().trim());
+    } catch (NumberFormatException e) {
+      return 0.0;
+    }
   }
 
   /**

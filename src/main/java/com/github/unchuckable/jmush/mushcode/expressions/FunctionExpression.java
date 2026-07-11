@@ -8,10 +8,10 @@ import com.github.unchuckable.jmush.mushcode.Value;
 
 public class FunctionExpression implements Expression {
 
-  private final MushFunction function;
+  private final MushFunctionHandler function;
   private final List<Expression> parameters;
 
-  public FunctionExpression(MushFunction function, List<Expression> parameters) {
+  public FunctionExpression(MushFunctionHandler function, List<Expression> parameters) {
     this.function = function;
     this.parameters = parameters;
   }

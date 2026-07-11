@@ -7,16 +7,16 @@ import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
-import com.github.unchuckable.jmush.mushcode.expressions.MushFunction;
+import com.github.unchuckable.jmush.mushcode.expressions.MushFunctionHandler;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.util.StringUtils;
 
 public class MushcodeParser {
 
-  private Map<String, MushFunction> functionMap;
+  private Map<String, MushFunctionHandler> functionMap;
 
-  public MushcodeParser(Map<String, MushFunction> functionMap) {
+  public MushcodeParser(Map<String, MushFunctionHandler> functionMap) {
     this.functionMap = functionMap;
   }
 
@@ -107,7 +107,7 @@ public class MushcodeParser {
               builder.append('(');
             } else {
               String functionName = builder.toString();
-              MushFunction function = getFunction(functionName);
+              MushFunctionHandler function = getFunction(functionName);
               if (function == null) {
                 builder.append('(');
                 break;
@@ -190,7 +190,7 @@ public class MushcodeParser {
     }
   }
 
-  public MushFunction getFunction(String name) {
+  public MushFunctionHandler getFunction(String name) {
     return this.functionMap.get(name.toLowerCase());
   }
 
