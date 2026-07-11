@@ -198,12 +198,13 @@ public class MushcodeParser {
 
     if (finishedExpressions.isEmpty()) {
       return new ConstantExpression(Value.of(builder.toString()));
-    } else {
-      if (builder.length() > 0) {
-        finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
-      }
-      return new ConcatExpression(finishedExpressions);
     }
+    if (builder.length() > 0) {
+      finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
+    }
+    return finishedExpressions.size() == 1
+        ? finishedExpressions.get(0)
+        : new ConcatExpression(finishedExpressions);
   }
 
   public MushFunctionHandler getFunction(String name) {
