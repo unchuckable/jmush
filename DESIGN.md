@@ -114,6 +114,20 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   result type. Because everything routes through this factory/accessor surface, the internal
   representation (single class vs. a future sealed-type union) is fully swappable later without
   touching any of the ~300 function implementations — no need to over-decide this now.
+  `asInt()`/`asDouble()`/`asDbRef()` each have a zero-arg form (using a sensible default
+  `#-1 ...` message) and an overload taking a custom error message, thrown as a
+  `MushValueException` and caught/converted to the returned `Value` by the same wrapper that
+  already handles arg-count validation — needed because some functions return bespoke error
+  text rather than the generic message, and exact error-string text is part of the
+  compatibility surface. Error message strings that recur across many functions (e.g. the
+  generic `#-1 ARGUMENT MUST BE INTEGER`) are collected as named constants in one place (a
+  small `MushErrors` holder), so there's exactly one spot to get each shared message right and
+  verify against the oracle — not applied to genuinely one-off, function-specific messages.
+  `MushValueException` disables stack-trace capture (`super(message, null, false, false)`)
+  since it signals an expected mushcode-level error condition, not a Java-level bug — nothing
+  ever inspects its stack trace, and skipping `fillInStackTrace()` removes the one part of
+  Java exceptions that's actually expensive, leaving throw/catch here close to as cheap as a
+  plain `return`.
 
 - **Built-in functions as annotated, self-registering providers.** A `@MushFunction(name=...,
   minArgs=..., maxArgs=...)` annotation on static methods in per-category provider classes
@@ -124,6 +138,17 @@ differential-testing against it continuously, rather than by reading `eval.c` an
   generic arg-count validation and `MushValueException` → mushcode-style `#-1 ...` error
   conversion, so individual function bodies stay free of that boilerplate. Adding function #301
   later means writing one annotated method — no central registration list to edit.
+  Annotated methods may be written with **distinct, named `Value` parameters** instead of the
+  raw `List<Value>` (e.g. `add(ExecutionContext ctx, Value a, Value b)`), for readability. A
+  small family of arity-specific functional interfaces (`MushFunction1`, `MushFunction2`, ...,
+  falling back to the list-based `MushFunction` for genuinely variadic functions) is adapted
+  to the uniform interface the parser expects via `MethodHandle`/`LambdaMetafactory`-generated
+  wrappers built once at registry-build time — not raw `Method.invoke` per call — so the
+  natural-parameter style costs nothing at runtime (equivalent to a hand-written direct call
+  once JIT-warmed, the same mechanism the JVM already uses for ordinary lambdas/method
+  references). The adapter only unpacks positional `Value` arguments; numeric parsing and
+  `MushValueException` handling stay inside the function body, keeping error semantics in one
+  place.
 
 - **No full application framework (Quarkus/Spring) for the core engine.** The game engine is a
   long-lived, stateful, connection-oriented simulation with a bespoke single-game-thread
@@ -150,12 +175,18 @@ differential-testing against it continuously, rather than by reading `eval.c` an
 ### Phase 1a — Evaluator core + object-independent functions
 - [ ] Extend `MushcodeParser`/`Expression` to full `eval.c` semantics (substitutions, `[...]`,
       `%q0-9` registers, iteration state).
-- [ ] Add `Value.asInt()`/`asDouble()`/`asDbRef()` and `ofInt`/`ofDouble`/`ofDbRef` factories,
-      matching TinyMUSH's exact numeric formatting/error-string conventions.
+- [ ] Add `Value.asInt()`/`asDouble()`/`asDbRef()` (each with a default and a
+      custom-error-message overload, throwing `MushValueException`) and `ofInt`/`ofDouble`/
+      `ofDbRef` factories, matching TinyMUSH's exact numeric formatting/error-string
+      conventions. Collect frequently-recurring error strings as named constants
+      (`MushErrors`).
 - [ ] Design ANSI-aware string handling (visible-length-aware `STRLEN`/`MID`/etc.) as part of
       the `Value`/evaluator core.
 - [ ] Build the attribute-compilation cache + invocation counters.
-- [ ] Stand up the `@MushFunction` annotation + `FunctionRegistry`.
+- [ ] Stand up the `@MushFunction` annotation + `FunctionRegistry`, including the
+      arity-specific functional interfaces (`MushFunction1`, `MushFunction2`, ...) and
+      `MethodHandle`/`LambdaMetafactory`-based adapter generation for distinct-parameter
+      function signatures.
 - [ ] Port string/math/list functions that don't touch the object graph, each verified against
       the oracle.
 
