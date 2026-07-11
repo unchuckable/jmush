@@ -51,6 +51,20 @@ public class ValueTest {
   }
 
   @Test
+  public void testAtoi() {
+    // C atoi() semantics: leading-integer-prefix only, stops at the first non-digit
+    // (notably '.' -- no float parsing), 0 on anything that doesn't start looking like an
+    // integer. Distinct from aton()'s float parsing -- oracle-verified via not(0.5) -> 1
+    // (atoi("0.5") is 0, a different result than aton("0.5") != 0 would give).
+    assertEquals(5L, Value.of("5abc").atoi());
+    assertEquals(0L, Value.of("0.5").atoi());
+    assertEquals(5L, Value.of(" 5").atoi());
+    assertEquals(-5L, Value.of("-5").atoi());
+    assertEquals(0L, Value.of("abc").atoi());
+    assertEquals(0L, Value.of("").atoi());
+  }
+
+  @Test
   public void testDbRefRoundTrip() {
     assertEquals("#42", Value.ofDbRef(DbRef.of(42)).asString());
     assertEquals(DbRef.of(42), Value.of("#42").asDbRef());

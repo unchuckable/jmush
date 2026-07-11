@@ -387,6 +387,36 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       different concerns in one package.
 - [ ] Port string/math/list functions that don't touch the object graph, each verified against
       the oracle.
+      **Done so far** (all oracle-verified): arithmetic -- `add`, `sub`, `abs`, `mul`, `div`
+      (integer, truncates toward zero), `fdiv` (float), `mod` (integer, zero-divisor falls back
+      to `1` rather than erroring); comparisons -- `eq`, `neq`, `gt`, `gte`, `lt`, `lte` (all
+      `aton()`-based); logic -- `and`, `or`, `xor`, `not` (all `atoi()`-based -- see below);
+      string -- `cat`, `strlen`. Along the way: added `Value.atoi()` (C `atoi()` semantics --
+      leading-integer-prefix only, stops at `.`, `0` on non-numeric input), genuinely distinct
+      from the existing `aton()` float-lenient parse (`not(0.5)` -> `1` proves it: `atoi("0.5")`
+      is `0`, but `aton("0.5") != 0`). Also fixed a latent bug found while porting `mul`/`and`/
+      `or`/`xor`: `add`'s `@MushFunction(minArgs = 2)` made `FunctionRegistry`'s generic wrapper
+      fire on too-few-args with the wrong message (`"EXPECTS AT LEAST 2 ARGUMENTS"`); real
+      `add()`/`mul()`/`and()`/`or()`/`xor()` are declared `FN_VARARGS` in `functions.c` and do
+      their own manual check, always producing the shared literal `"#-1 TOO FEW ARGUMENTS"`
+      (confirmed in `eval.c`'s dispatcher: the generic arg-count message only applies to
+      fixed-arity functions; `FN_VARARGS` ones bypass it entirely) -- promoted this to a
+      real `MushErrors.TOO_FEW_ARGUMENTS` constant and switched those five functions'
+      `@MushFunction` annotations to the default `minArgs=0` so the generic wrapper never
+      intercepts, delegating fully to a manual body check. Also added
+      `MushErrors.DIVIDE_BY_ZERO`, likewise a directly-observed literal (not a placeholder like
+      the three pre-existing `MushErrors` constants). New `StringFunctions` provider class
+      alongside `MathFunctions` (both registered in `FunctionRegistry.PROVIDER_CLASSES`).
+      **Not done yet**: `left`/`right`/`mid` (defer with ANSI-aware string handling, see the
+      item below -- `functions.c` interleaves ANSI-escape-skipping directly into their
+      character-counting loops); list functions (`words`, `elements`, etc. -- need a decision on
+      list-separator handling first); `first`/`rest` (depend on the same separator-handling
+      groundwork); `pi`/`e`/`version` and other genuinely zero-arg functions (need
+      `FunctionRegistry`/`MushcodeParser` to replicate `eval.c`'s "`f()` empty parens parses as
+      one empty-string argument, not zero arguments" quirk for the `nargs==0` case -- `jmush`'s
+      `getParameters` already produces a 1-element `[""]` list for `f()`, same as the C parser,
+      but nothing currently collapses that back to a true 0-arg call the way `eval.c`'s
+      dispatcher does, so an exact-0-arity Java function has no natural way to receive it yet).
 
 ### Phase 2 — Object model & persistence
 - [ ] Extend `MushObject`/`Flag`/`Power` into a full object graph: rooms/exits/players,

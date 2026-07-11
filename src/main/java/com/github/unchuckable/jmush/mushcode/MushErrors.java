@@ -19,6 +19,18 @@ public final class MushErrors {
   public static final String MUST_BE_NUMBER = "#-1 ARGUMENT MUST BE NUMBER";
   public static final String NOT_A_DBREF = "#-1 NO SUCH OBJECT";
 
+  /**
+   * Oracle-verified, directly observed literal (unlike the three above): genuinely variadic
+   * functions declared {@code FN_VARARGS} in {@code functions.c}'s table (e.g. {@code add}/{@code
+   * mul}/{@code and}/{@code or}/{@code xor}) enforce their own minimum-argument-count check in the
+   * function body rather than via {@code eval.c}'s central {@code nargs}-based dispatch, and all
+   * use this exact message.
+   */
+  public static final String TOO_FEW_ARGUMENTS = "#-1 TOO FEW ARGUMENTS";
+
+  /** Oracle-verified, directly observed literal: {@code div()}/{@code fdiv()} on a zero divisor. */
+  public static final String DIVIDE_BY_ZERO = "#-1 DIVIDE BY ZERO";
+
   private MushErrors() {
     // static holder, do not instantiate
   }

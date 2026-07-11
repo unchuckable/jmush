@@ -117,11 +117,76 @@ public class CompatibilityOracleTest {
     assertMatchesOracle("add(10,5,3)");
     assertMatchesOracle("add(abc,3)");
     assertMatchesOracle("add(12abc,3)");
+    assertMatchesOracle("add(1)");
+    assertMatchesOracle("add()");
     assertMatchesOracle("sub(10,3)");
     assertMatchesOracle("sub(abc,3)");
+    assertMatchesOracle("sub(1)");
     assertMatchesOracle("abs(-5)");
     assertMatchesOracle("abs(-5.5)");
     assertMatchesOracle("abs(abc)");
+    assertMatchesOracle("mul(2,3,4)");
+    assertMatchesOracle("mul(2,abc)");
+    assertMatchesOracle("mul(2)");
+    assertMatchesOracle("mul()");
+    assertMatchesOracle("div(7,2)");
+    assertMatchesOracle("div(-7,2)");
+    assertMatchesOracle("div(7,-2)");
+    assertMatchesOracle("div(-7,-2)");
+    assertMatchesOracle("div(7,0)");
+    assertMatchesOracle("fdiv(7,2)");
+    assertMatchesOracle("fdiv(7.5,2.5)");
+    assertMatchesOracle("fdiv(7,0)");
+    assertMatchesOracle("mod(7,3)");
+    assertMatchesOracle("mod(-7,3)");
+    assertMatchesOracle("mod(7,-3)");
+    assertMatchesOracle("mod(7,0)");
+  }
+
+  @Test
+  void comparisonFunctionsMatchOracle() throws IOException {
+    assertMatchesOracle("eq(1,1)");
+    assertMatchesOracle("eq(1,2)");
+    assertMatchesOracle("eq(1.0,1)");
+    assertMatchesOracle("neq(1,2)");
+    assertMatchesOracle("gt(2,1)");
+    assertMatchesOracle("gte(2,2)");
+    assertMatchesOracle("lt(1,2)");
+    assertMatchesOracle("lte(2,2)");
+    assertMatchesOracle("eq(1)");
+  }
+
+  @Test
+  void logicFunctionsMatchOracle() throws IOException {
+    assertMatchesOracle("and(1,1)");
+    assertMatchesOracle("and(1,0)");
+    assertMatchesOracle("and(0,1,1)");
+    assertMatchesOracle("and(1)");
+    assertMatchesOracle("and()");
+    assertMatchesOracle("or(0,0)");
+    assertMatchesOracle("or(0,1)");
+    assertMatchesOracle("or(1)");
+    assertMatchesOracle("xor(1,0)");
+    assertMatchesOracle("xor(1,1)");
+    assertMatchesOracle("xor(0,0)");
+    assertMatchesOracle("xor(1)");
+    assertMatchesOracle("not(0)");
+    assertMatchesOracle("not(5)");
+    assertMatchesOracle("not(abc)");
+    assertMatchesOracle("not(0.0)");
+    assertMatchesOracle("not(0.5)");
+    assertMatchesOracle("not()");
+    assertMatchesOracle("not(1,2)");
+  }
+
+  @Test
+  void stringFunctionsMatchOracle() throws IOException {
+    assertMatchesOracle("cat(a,b,c)");
+    assertMatchesOracle("cat(a)");
+    assertMatchesOracle("cat()");
+    assertMatchesOracle("strlen(hello)");
+    assertMatchesOracle("strlen()");
+    assertMatchesOracle("strlen(hello world)");
   }
 
   private void assertMatchesOracle(String mushcode) throws IOException {

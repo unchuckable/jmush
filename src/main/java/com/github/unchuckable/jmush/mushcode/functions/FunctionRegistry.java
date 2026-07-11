@@ -4,6 +4,7 @@ import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.MushValueException;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.builtin.MathFunctions;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.StringFunctions;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaMetafactory;
 import java.lang.invoke.MethodHandle;
@@ -28,7 +29,8 @@ import java.util.Map;
  */
 public class FunctionRegistry {
 
-  private static final List<Class<?>> PROVIDER_CLASSES = Arrays.asList(MathFunctions.class);
+  private static final List<Class<?>> PROVIDER_CLASSES =
+      Arrays.asList(MathFunctions.class, StringFunctions.class);
 
   public static Map<String, MushFunctionHandler> build() {
     Map<String, MushFunctionHandler> registry = new HashMap<>();

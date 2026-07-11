@@ -123,6 +123,29 @@ public class Value {
     }
   }
 
+  private static final Pattern ATOI_PREFIX = Pattern.compile("^\\s*[+-]?\\d+");
+
+  /**
+   * Matches the C library {@code atoi()} that many comparison/logical functions (e.g. {@code
+   * and()}/{@code or()}/{@code not()}) truncate their arguments through: leading-integer-prefix
+   * only, stopping at the first non-digit (notably {@code '.'} -- no float parsing), defaulting to
+   * {@code 0} on anything that doesn't start looking like an integer -- never throws. Deliberately
+   * separate from {@link #aton()} (which parses floats): the two disagree on fractional-only input,
+   * oracle-verified (e.g. {@code not(0.5)} -> {@code 1}, since {@code atoi("0.5")} is {@code 0}, a
+   * different result than {@code aton("0.5") != 0} would give).
+   */
+  public long atoi() {
+    Matcher matcher = ATOI_PREFIX.matcher(value);
+    if (!matcher.find()) {
+      return 0;
+    }
+    try {
+      return Long.parseLong(matcher.group().trim());
+    } catch (NumberFormatException e) {
+      return 0;
+    }
+  }
+
   /**
    * Matches {@code functions.c}'s {@code fval()}: format with 6 decimal places, strip trailing
    * fractional zeros (and a then-dangling '.'), and normalize "-0" to "0". Does not replicate
