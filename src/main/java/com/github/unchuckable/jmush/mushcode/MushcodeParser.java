@@ -2,7 +2,6 @@ package com.github.unchuckable.jmush.mushcode;
 
 import com.github.unchuckable.jmush.mushcode.expressions.AttributeExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
-import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
 import com.github.unchuckable.jmush.mushcode.expressions.DynamicFunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
@@ -133,7 +132,7 @@ public class MushcodeParser {
                 new ArrayList<>(
                     finishedExpressions.subList(nameBoundary, finishedExpressions.size()));
             if (builder.length() > 0) {
-              pendingName.add(new ConstantExpression(Value.of(builder.toString())));
+              pendingName.add(Value.of(builder.toString()));
             }
             boolean nameIsConstant = true;
             for (Expression piece : pendingName) {
@@ -259,10 +258,10 @@ public class MushcodeParser {
     }
 
     if (finishedExpressions.isEmpty()) {
-      return new ConstantExpression(Value.of(builder.toString()));
+      return Value.of(builder.toString());
     }
     if (builder.length() > 0) {
-      finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
+      finishedExpressions.add(Value.of(builder.toString()));
     }
     return finishedExpressions.size() == 1
         ? finishedExpressions.get(0)
@@ -289,7 +288,7 @@ public class MushcodeParser {
 
   private void flushBuilder(StringBuilder builder, List<Expression> finishedExpressions) {
     if (builder.length() > 0) {
-      finishedExpressions.add(new ConstantExpression(Value.of(builder.toString())));
+      finishedExpressions.add(Value.of(builder.toString()));
       builder.setLength(0);
     }
   }

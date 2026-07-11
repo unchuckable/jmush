@@ -12,8 +12,13 @@ import java.util.regex.Pattern;
  * <p>Numeric/dbref accessors are parse-on-demand and memoized (safe since {@code Value} is
  * immutable); the matching factory pre-populates both the canonical string and the cached field to
  * skip a redundant round-trip when a function already knows its native result type.
+ *
+ * <p>Also implements {@link Expression} directly, evaluating to itself: a {@code Value} already
+ * *is* a constant expression (a literal), so there's no need for a separate wrapper node -- {@code
+ * Value.of("x")} can be used anywhere an {@code Expression} is expected, e.g. as a {@code
+ * ConcatExpression}/{@code FunctionExpression} child.
  */
-public class Value {
+public class Value implements Expression {
 
   private final String value;
 
@@ -221,5 +226,15 @@ public class Value {
   @Override
   public String toString() {
     return value;
+  }
+
+  @Override
+  public Value evaluateExpression(ExecutionContext context) {
+    return this;
+  }
+
+  @Override
+  public boolean isConstant() {
+    return true;
   }
 }
