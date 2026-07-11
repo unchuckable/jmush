@@ -71,6 +71,16 @@ public class CompatibilityOracleTest {
     return corpusTests("string-functions.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> switchFunctionMatchesOracle() throws IOException {
+    return corpusTests("switch-function.json");
+  }
+
+  @TestFactory
+  Stream<DynamicTest> dynamicFunctionNamesMatchOracle() throws IOException {
+    return corpusTests("dynamic-function-names.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

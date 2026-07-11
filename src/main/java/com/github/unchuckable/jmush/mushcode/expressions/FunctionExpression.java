@@ -4,7 +4,6 @@ import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
-import java.util.ArrayList;
 import java.util.List;
 
 public class FunctionExpression implements Expression {
@@ -18,18 +17,7 @@ public class FunctionExpression implements Expression {
   }
 
   public Value evaluateExpression(ExecutionContext context) {
-    return function.execute(context, evaluateParameters(context));
-  }
-
-  private List<Value> evaluateParameters(ExecutionContext context) {
-    if (parameters == null) {
-      return null;
-    }
-    List<Value> parameterValues = new ArrayList<>(parameters.size());
-    for (Expression thisParameter : parameters) {
-      parameterValues.add(thisParameter.evaluateExpression(context));
-    }
-    return parameterValues;
+    return function.execute(context, parameters);
   }
 
   public boolean isConstant() {

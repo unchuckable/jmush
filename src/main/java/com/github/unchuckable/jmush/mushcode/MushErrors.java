@@ -31,6 +31,15 @@ public final class MushErrors {
   /** Oracle-verified, directly observed literal: {@code div()}/{@code fdiv()} on a zero divisor. */
   public static final String DIVIDE_BY_ZERO = "#-1 DIVIDE BY ZERO";
 
+  /**
+   * Oracle-verified, directly observed literal: {@code setq()} with a register outside the
+   * supported range (jmush only models the digit registers {@code %q0}-{@code %q9}, matching {@link
+   * com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression}; production TinyMUSH also
+   * allows letter-named extended registers that jmush has no substitution syntax to read back, so
+   * those aren't accepted either).
+   */
+  public static final String INVALID_GLOBAL_REGISTER = "#-1 INVALID GLOBAL REGISTER";
+
   private MushErrors() {
     // static holder, do not instantiate
   }

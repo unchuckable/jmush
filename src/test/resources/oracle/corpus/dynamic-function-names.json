@@ -1,0 +1,41 @@
+{
+  "notes": "Function names resolved from evaluated (not literal source) text -- e.g. a register holding a function name. jmush\u0027s parser normally resolves names statically at parse time (MushcodeParser); DynamicFunctionExpression is only built when the accumulated name-candidate depends on a substitution. Two documented divergences are deliberately NOT in this corpus (see DynamicFunctionExpression\u0027s/RegisterFunctions\u0027 javadoc): unknownfunc(add(1,2),3) stays fully literal on the real oracle (contaminated-accumulator effect jmush doesn\u0027t replicate), and setq(a,text) succeeds silently on real TinyMUSH\u0027s letter-named extended registers, which jmush doesn\u0027t model.",
+  "cases": [
+    {
+      "input": "[setq(0,add)]%q0(1,2)",
+      "expected": "3"
+    },
+    {
+      "input": "setq(0,add)",
+      "expected": ""
+    },
+    {
+      "input": "[setq(0,add)]",
+      "expected": ""
+    },
+    {
+      "input": "add%q1(1,2)",
+      "expected": "3"
+    },
+    {
+      "input": "[setq(0,add)]xxx%q0(1,2)",
+      "expected": "xxxadd(1,2)"
+    },
+    {
+      "input": "%q0(1,2)",
+      "expected": "(1,2)"
+    },
+    {
+      "input": "unknownfunc(1,2)",
+      "expected": "unknownfunc(1,2)"
+    },
+    {
+      "input": "unknownfunc(%#,2)",
+      "expected": "unknownfunc(#1,2)"
+    },
+    {
+      "input": "setq(10,x)",
+      "expected": "#-1 INVALID GLOBAL REGISTER"
+    }
+  ]
+}

@@ -4,6 +4,7 @@ import com.github.unchuckable.jmush.mushcode.expressions.AttributeExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
+import com.github.unchuckable.jmush.mushcode.expressions.DynamicFunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
@@ -28,6 +29,13 @@ public class MushcodeParser {
   public Expression parse(String string, EvalFlags flags) {
     List<Expression> finishedExpressions = new ArrayList<>();
     StringBuilder builder = new StringBuilder();
+
+    // Marks where the current function-name candidate starts within finishedExpressions --
+    // mirrors eval.c's "oldp": it only advances once a function call actually dispatches, so
+    // literal text, substitutions, and forced-eval/{}-group output accumulated since the last
+    // dispatched call are all still eligible to be re-read as the *next* function name (see
+    // the '(' case below).
+    int nameBoundary = 0;
 
     int index = 0;
 
@@ -106,8 +114,34 @@ public class MushcodeParser {
             int endIndex = StringUtils.findIndexOf(')', string, index + 1);
             if (endIndex == -1) {
               builder.append('(');
-            } else {
-              String functionName = builder.toString();
+              break;
+            }
+
+            // The function-name candidate is everything accumulated since the last dispatched
+            // call: pending finishedExpressions entries plus the current literal run.
+            List<Expression> pendingName =
+                new ArrayList<>(
+                    finishedExpressions.subList(nameBoundary, finishedExpressions.size()));
+            if (builder.length() > 0) {
+              pendingName.add(new ConstantExpression(Value.of(builder.toString())));
+            }
+            boolean nameIsConstant = true;
+            for (Expression piece : pendingName) {
+              if (!piece.isConstant()) {
+                nameIsConstant = false;
+                break;
+              }
+            }
+
+            if (nameIsConstant) {
+              // Common/fast path: fold the (always context-independent, per isConstant()'s
+              // contract) pieces to a literal string and resolve the function right now, exactly
+              // as before this method learned about dynamic names.
+              StringBuilder nameBuilder = new StringBuilder();
+              for (Expression piece : pendingName) {
+                nameBuilder.append(piece.evaluateExpression(null).asString());
+              }
+              String functionName = nameBuilder.toString();
               MushFunctionHandler function = getFunction(functionName);
               if (function == null) {
                 builder.append('(');
@@ -117,6 +151,21 @@ public class MushcodeParser {
               builder.setLength(0);
               finishedExpressions.add(new FunctionExpression(function, parameters));
               index = endIndex;
+              nameBoundary = finishedExpressions.size();
+            } else {
+              // The name depends on a substitution/function result -- defer both name resolution
+              // and argument parsing to evaluation time (see DynamicFunctionExpression).
+              while (finishedExpressions.size() > nameBoundary) {
+                finishedExpressions.remove(finishedExpressions.size() - 1);
+              }
+              builder.setLength(0);
+              Expression nameExpression =
+                  pendingName.size() == 1 ? pendingName.get(0) : new ConcatExpression(pendingName);
+              String rawArguments = string.substring(index + 1, endIndex);
+              finishedExpressions.add(
+                  new DynamicFunctionExpression(this, nameExpression, rawArguments, flags));
+              index = endIndex;
+              nameBoundary = finishedExpressions.size();
             }
             break;
           }
@@ -211,7 +260,7 @@ public class MushcodeParser {
     return this.functionMap.get(name.toLowerCase());
   }
 
-  private List<Expression> getParameters(
+  public List<Expression> getParameters(
       String string, int startIndex, int endIndex, EvalFlags flags) {
     List<Expression> parameters = new ArrayList<>();
     int currentIndex = startIndex;

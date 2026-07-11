@@ -98,7 +98,9 @@ public class MushcodeParserTest {
     MushcodeParser parser =
         new MushcodeParser(
             Collections.singletonMap(
-                "f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
+                "f",
+                (ctx, params) ->
+                    Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")")));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
@@ -112,7 +114,9 @@ public class MushcodeParserTest {
     MushcodeParser parser =
         new MushcodeParser(
             Collections.singletonMap(
-                "f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
+                "f",
+                (ctx, params) ->
+                    Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")")));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 

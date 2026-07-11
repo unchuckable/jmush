@@ -1,9 +1,12 @@
 package com.github.unchuckable.jmush.mushcode.functions;
 
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
+import com.github.unchuckable.jmush.mushcode.Expression;
 import com.github.unchuckable.jmush.mushcode.MushValueException;
 import com.github.unchuckable.jmush.mushcode.Value;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.ControlFunctions;
 import com.github.unchuckable.jmush.mushcode.functions.builtin.MathFunctions;
+import com.github.unchuckable.jmush.mushcode.functions.builtin.RegisterFunctions;
 import com.github.unchuckable.jmush.mushcode.functions.builtin.StringFunctions;
 import java.lang.invoke.CallSite;
 import java.lang.invoke.LambdaMetafactory;
@@ -12,6 +15,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -30,7 +34,22 @@ import java.util.Map;
 public class FunctionRegistry {
 
   private static final List<Class<?>> PROVIDER_CLASSES =
-      Arrays.asList(MathFunctions.class, StringFunctions.class);
+      Arrays.asList(
+          MathFunctions.class,
+          StringFunctions.class,
+          RegisterFunctions.class,
+          ControlFunctions.class);
+
+  /**
+   * The shape of an ordinary (non-{@code lazy}) {@code @MushFunction} method -- pure over
+   * already-evaluated {@link Value}s. {@link #buildHandler} bridges from the outer, {@code
+   * Expression}-based {@link MushFunctionHandler} contract by evaluating every argument eagerly
+   * before delegating to one of these. {@code lazy} methods skip this entirely and are adapted
+   * straight to {@link MushFunctionHandler} by {@link #adaptLazy}.
+   */
+  private interface EagerFunctionHandler {
+    Value execute(ExecutionContext context, List<Value> parameters);
+  }
 
   public static Map<String, MushFunctionHandler> build() {
     Map<String, MushFunctionHandler> registry = new HashMap<>();
@@ -58,31 +77,46 @@ public class FunctionRegistry {
           "@MushFunction method's first parameter must be ExecutionContext: " + method);
     }
 
-    MushFunctionHandler unvalidated;
+    // "core" always operates on unevaluated Expressions -- for the ordinary (non-lazy) shapes
+    // that just means wrapping an EagerFunctionHandler with an eager evaluation step, so
+    // arg-count validation and MushValueException conversion below can be applied uniformly
+    // regardless of laziness.
+    MushFunctionHandler core;
     int minArgs;
     int maxArgs;
-    if (paramTypes.length == 2 && paramTypes[1] == List.class) {
+    if (annotation.lazy()) {
+      if (paramTypes.length != 2 || paramTypes[1] != List.class) {
+        throw new IllegalArgumentException(
+            "lazy @MushFunction method must take (ExecutionContext, List<Expression>): " + method);
+      }
+      core = adaptLazy(lookup, method);
+      minArgs = annotation.minArgs();
+      maxArgs = annotation.maxArgs();
+    } else if (paramTypes.length == 2 && paramTypes[1] == List.class) {
       // variadic: arity isn't derivable from the signature, so the annotation must say
-      unvalidated = adaptVariadic(lookup, method);
+      EagerFunctionHandler eagerHandler = adaptVariadic(lookup, method);
+      core = (ctx, argExpressions) -> eagerHandler.execute(ctx, evaluateAll(argExpressions, ctx));
       minArgs = annotation.minArgs();
       maxArgs = annotation.maxArgs();
     } else if (allTrailingParamsAreValue(paramTypes)) {
       // fixed-arity: the Value parameter count *is* the arity, so derive it rather than
       // trust the annotation to restate it correctly
       int arity = paramTypes.length - 1;
-      unvalidated = adaptFixedArity(lookup, method, arity);
+      EagerFunctionHandler eagerHandler = adaptFixedArity(lookup, method, arity);
+      core = (ctx, argExpressions) -> eagerHandler.execute(ctx, evaluateAll(argExpressions, ctx));
       minArgs = arity;
       maxArgs = arity;
     } else {
       throw new IllegalArgumentException(
-          "@MushFunction method must take (ExecutionContext, Value...) or "
-              + "(ExecutionContext, List<Value>): "
+          "@MushFunction method must take (ExecutionContext, Value...), "
+              + "(ExecutionContext, List<Value>), or (with lazy=true) "
+              + "(ExecutionContext, List<Expression>): "
               + method);
     }
 
     String name = annotation.name();
-    return (ctx, args) -> {
-      int argCount = args == null ? 0 : args.size();
+    return (ctx, argExpressions) -> {
+      int argCount = argExpressions == null ? 0 : argExpressions.size();
       if (argCount < minArgs || argCount > maxArgs) {
         return Value.of(
             "#-1 FUNCTION ("
@@ -92,11 +126,22 @@ public class FunctionRegistry {
                 + " ARGUMENTS");
       }
       try {
-        return unvalidated.execute(ctx, args);
+        return core.execute(ctx, argExpressions);
       } catch (MushValueException e) {
         return Value.of(e.getMessage());
       }
     };
+  }
+
+  private static List<Value> evaluateAll(List<Expression> parameters, ExecutionContext context) {
+    if (parameters == null) {
+      return null;
+    }
+    List<Value> values = new ArrayList<>(parameters.size());
+    for (Expression parameter : parameters) {
+      values.add(parameter.evaluateExpression(context));
+    }
+    return values;
   }
 
   private static boolean allTrailingParamsAreValue(Class<?>[] paramTypes) {
@@ -121,7 +166,7 @@ public class FunctionRegistry {
     return "BETWEEN " + minArgs + " AND " + maxArgs;
   }
 
-  private static MushFunctionHandler adaptVariadic(MethodHandles.Lookup lookup, Method method) {
+  private static MushFunctionHandler adaptLazy(MethodHandles.Lookup lookup, Method method) {
     try {
       MethodHandle target = lookup.unreflect(method);
       CallSite site =
@@ -138,7 +183,24 @@ public class FunctionRegistry {
     }
   }
 
-  private static MushFunctionHandler adaptFixedArity(
+  private static EagerFunctionHandler adaptVariadic(MethodHandles.Lookup lookup, Method method) {
+    try {
+      MethodHandle target = lookup.unreflect(method);
+      CallSite site =
+          LambdaMetafactory.metafactory(
+              lookup,
+              "execute",
+              MethodType.methodType(EagerFunctionHandler.class),
+              MethodType.methodType(Value.class, ExecutionContext.class, List.class),
+              target,
+              target.type());
+      return (EagerFunctionHandler) site.getTarget().invoke();
+    } catch (Throwable t) {
+      throw new IllegalStateException("Failed to adapt " + method, t);
+    }
+  }
+
+  private static EagerFunctionHandler adaptFixedArity(
       MethodHandles.Lookup lookup, Method method, int arity) {
     try {
       MethodHandle target = lookup.unreflect(method);

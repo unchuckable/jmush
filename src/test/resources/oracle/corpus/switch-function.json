@@ -1,0 +1,53 @@
+{
+  "notes": "switch(subject, pattern1, branch1[, pattern2, branch2, ...][, default]) -- patterns are wildcard-matched (*/?) against subject, case-insensitively; only the matching branch (or default) is evaluated, never the losing branches (verified via setq() side effects below). Fewer than 2 arguments returns \"\", not an error.",
+  "cases": [
+    {
+      "input": "switch(1,1,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "switch(1,2,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "switch(a*,abc,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "switch(A*,abc,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "switch(abc,A*,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "switch(1,2,two,3,three,default)",
+      "expected": "default"
+    },
+    {
+      "input": "switch(1)",
+      "expected": ""
+    },
+    {
+      "input": "switch()",
+      "expected": ""
+    },
+    {
+      "input": "switch(x)",
+      "expected": ""
+    },
+    {
+      "input": "switch(1,2)",
+      "expected": "2"
+    },
+    {
+      "input": "switch(1,2,[setq(0,two)]t,1,[setq(0,one)]o,def)%q0",
+      "expected": "oone"
+    },
+    {
+      "input": "switch(9,2,[setq(0,two)]t,1,[setq(0,one)]o,[setq(0,def)]d)%q0",
+      "expected": "ddef"
+    }
+  ]
+}
