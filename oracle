@@ -1,0 +1,10 @@
+#!/bin/sh
+# Probes a running TinyMUSH oracle server with a mushcode snippet.
+# Usage: ./oracle 'add(2,3)'
+# Connection defaults to 127.0.0.1:6250 as #1/potrzebie; override via
+# ORACLE_HOST/ORACLE_PORT/ORACLE_USER/ORACLE_PASS.
+set -e
+DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$DIR"
+mvn -q test-compile
+java -cp target/classes:target/test-classes com.github.unchuckable.jmush.oracle.OracleCli "$@"

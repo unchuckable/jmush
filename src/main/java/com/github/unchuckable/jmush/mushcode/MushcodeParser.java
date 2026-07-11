@@ -96,7 +96,7 @@ public class MushcodeParser {
                 builder.append('%');
                 break;
               case 'r':
-                builder.append('\r');
+                builder.append("\r\n");
                 break;
               case 'n':
                 builder.append('\n');

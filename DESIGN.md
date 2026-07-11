@@ -240,11 +240,18 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       telnet and captures output. Includes the nondeterminism layer from day one: output
       normalization (timestamps etc.), fixed-seed/shape-assertion conventions for random
       functions, identical object-graph setup on both sides for traversal-order tests.
-- [ ] **Validate that vanilla 3.0-p4 is actually the spec**: the Denver mods may patch core
-      string/output handling (their "ANSI fix"), not just add functions. Run a probe corpus
-      against the *live production server* and diff against local vanilla `../tinymush` — any
-      divergence found now redefines the oracle target; found in Phase 5, it invalidates green
-      diffs from every prior phase.
+- [x] **Validate that vanilla 3.0-p4 is actually the spec** — settled, and the answer is no.
+      Production's in-game `version` (build #206, 2022-02-20) reports 34 local `-D` flags
+      (`ANSI_SUBST_FIX`, `FIX_ANSI`, `STRING_MODS`, `BOOLFIX`, `PEMIT_FIX`, `COMSYS_BUG`,
+      `ITERSQ`, `POSALL`, `ANYOF`, `MOVEHOOK`, and 24 more — see git history for the full list)
+      that **do not exist anywhere in our vanilla `../tinymush` checkout** — not inert, the
+      `#ifdef`-guarded code itself is absent. This confirms real source patches beyond added
+      functions, several touching core string/ANSI/evaluator behavior, not just
+      `denver-functions.txt`'s documented additions. **We do not have that source yet.** Plan:
+      once obtained, diff it against vanilla 3.0-p4 to isolate exactly what changed, then port
+      each change deliberately (Phase 5 scope) rather than reverse-engineering from black-box
+      behavior probes now. Until then, vanilla `../tinymush` remains the working oracle with
+      this caveat attached to every diff result.
 - [ ] `[...]` inline-eval + full substitution set gap check — extend `MushcodeParser` to
       handle `[...]` forced evaluation and the full `%`-substitution set (`%q0-9`, `%v`, `%!`,
       `%l`, `%c`, `%s`, etc.), validated against the oracle.
@@ -404,10 +411,10 @@ handful of commands needed for a minimal experience, not the full command table.
   compatibility spec — it lets Phase 1/1b function-porting be prioritized by real usage instead
   of guesswork, and is the most reliable way to find local-mod functions beyond
   `denver-functions.txt`.
-- **Is vanilla 3.0-p4 actually the spec?** The Denver mods may patch core behavior (their
-  "ANSI fix" suggests string/output changes), not just add functions. Until the Phase 0 probe
-  (live server vs. local vanilla) says otherwise, every oracle result carries this caveat.
-  Locating the production source tree or its patch set would settle it outright.
+- ~~Is vanilla 3.0-p4 actually the spec?~~ **Settled: no** (see Phase 0 checklist). Production's
+  34 local `-D` flags gate source patches absent from our vanilla checkout. Locating the
+  patched source tree (or its patch set) is now the concrete blocker for closing this gap —
+  see Decisions/checklist for the diff-then-port plan once it's found.
 - A copy of the production `netmush.conf` is needed early — the oracle must run under it, and
   the Phase 1a config layer parses it.
 - Is importing/migrating the live production database a hard requirement, or is a fresh start
