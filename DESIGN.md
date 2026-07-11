@@ -307,11 +307,22 @@ differential-testing against it continuously, rather than by reading `eval.c` an
       (`'a\ '` appeared to lose its escaped trailing space via the oracle, contradicting a
       literal reading of `eval.c`'s escape handling -- plausibly `think`-command-line
       trimming rather than evaluator behavior; not chased further, low real-world impact).
-- [ ] Add `Value.asInt()`/`asDouble()`/`asDbRef()` (each with a default and a
+- [x] Add `Value.asInt()`/`asDouble()`/`asDbRef()` (each with a default and a
       custom-error-message overload, throwing `MushValueException`) and `ofInt`/`ofDouble`/
       `ofDbRef` factories, matching TinyMUSH's exact numeric formatting/error-string
       conventions. Collect frequently-recurring error strings as named constants
-      (`MushErrors`).
+      (`MushErrors`). Added a minimal `DbRef` value type (none existed). `ofDouble`'s
+      canonical-string formatting replicates `functions.c`'s `fval()` exactly (`%.6f`, strip
+      trailing fractional zeros and a then-dangling `.`, normalize `-0`->`0`) --
+      oracle-verified via `add(x,0)` for several values (`100`, `100.5`, `120`,
+      `1.123456789`->`1.123457`, `-0.0000001`->`0`, `0.1+0.2`->`0.3`). Does *not* replicate
+      `fp_check_weird()`'s bit-level denormal handling, only the observable NaN/Infinity/-0
+      cases. **`MushErrors`'s three messages are unverified placeholders**: vanilla 3.0-p4's
+      `add()`/`sub()` use `aton()` (plain `atoi`/`atof`), which silently coerces bad input to
+      `0` rather than erroring -- there's no directly-observed canonical `#-1 ARGUMENT MUST
+      BE ...`/`#-1 NO SUCH OBJECT`-style string in the reference source for strict
+      validation. Confirm/replace once a real ported function actually validates strictly,
+      oracle-tested.
 - [ ] Design ANSI-aware string handling (visible-length-aware `STRLEN`/`MID`/etc.) as part of
       the `Value`/evaluator core.
 - [ ] Enforce the LBUF output-truncation limit (configurable, default 8000 bytes) centrally at
