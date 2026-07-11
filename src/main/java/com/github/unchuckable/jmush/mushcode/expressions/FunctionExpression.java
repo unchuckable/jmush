@@ -1,11 +1,11 @@
 package com.github.unchuckable.jmush.mushcode.expressions;
 
-import java.util.ArrayList;
-import java.util.List;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FunctionExpression implements Expression {
 
@@ -18,16 +18,16 @@ public class FunctionExpression implements Expression {
   }
 
   public Value evaluateExpression(ExecutionContext context) {
-    return function.execute(context, evaluateParameters(parameters, context));
+    return function.execute(context, evaluateParameters(context));
   }
-  
-  private List<Value> evaluateParameters(List<Expression> parameters, ExecutionContext ctx) {
-    if ( parameters == null ) {
+
+  private List<Value> evaluateParameters(ExecutionContext context) {
+    if (parameters == null) {
       return null;
     }
     List<Value> parameterValues = new ArrayList<>(parameters.size());
     for (Expression thisParameter : parameters) {
-      parameterValues.add(thisParameter.evaluateExpression(ctx));
+      parameterValues.add(thisParameter.evaluateExpression(context));
     }
     return parameterValues;
   }

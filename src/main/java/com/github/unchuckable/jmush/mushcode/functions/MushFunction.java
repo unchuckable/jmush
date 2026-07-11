@@ -6,21 +6,21 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a static method in a provider class (e.g. {@code MathFunctions}) as a built-in
- * mushcode function, mirroring {@code functions.c}'s {@code FUNCTION()} macro table.
- * {@link FunctionRegistry} reflects over an explicit list of provider classes and adapts
- * each annotated method into the uniform {@link MushFunctionHandler} the parser expects.
+ * Marks a static method in a provider class (e.g. {@code MathFunctions}) as a built-in mushcode
+ * function, mirroring {@code functions.c}'s {@code FUNCTION()} macro table. {@link
+ * FunctionRegistry} reflects over an explicit list of provider classes and adapts each annotated
+ * method into the uniform {@link MushFunctionHandler} the parser expects.
  *
- * <p>The annotated method's first parameter must be {@code ExecutionContext}. The
- * remaining parameters are either a fixed number of {@code Value} parameters (for
- * readability -- e.g. {@code sub(ExecutionContext ctx, Value a, Value b)}), or a single
- * trailing {@code List<Value>} for genuinely variadic functions (e.g. {@code add()}).
+ * <p>The annotated method's first parameter must be {@code ExecutionContext}. The remaining
+ * parameters are either a fixed number of {@code Value} parameters (for readability -- e.g. {@code
+ * sub(ExecutionContext ctx, Value a, Value b)}), or a single trailing {@code List<Value>} for
+ * genuinely variadic functions (e.g. {@code add()}).
  *
  * <p>{@link #minArgs} and {@link #maxArgs} are only consulted for the {@code List<Value>}
- * (variadic) shape, where arity isn't derivable from the signature. For the fixed-arity
- * {@code Value...} shape, {@link FunctionRegistry} derives the required argument count
- * directly from the parameter count -- these are ignored there, so there's no way for the
- * declared arity and the annotation to drift out of sync.
+ * (variadic) shape, where arity isn't derivable from the signature. For the fixed-arity {@code
+ * Value...} shape, {@link FunctionRegistry} derives the required argument count directly from the
+ * parameter count -- these are ignored there, so there's no way for the declared arity and the
+ * annotation to drift out of sync.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

@@ -2,12 +2,11 @@ package com.github.unchuckable.jmush.mushcode.functions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import org.junit.jupiter.api.Test;
-
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
 import com.github.unchuckable.jmush.mushcode.MushcodeParser;
+import org.junit.jupiter.api.Test;
 
 public class FunctionRegistryTest {
 
@@ -16,7 +15,8 @@ public class FunctionRegistryTest {
   }
 
   private String eval(String code) {
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
     return parse(code).evaluateExpression(ctx).toString();
   }
 
@@ -47,5 +47,4 @@ public class FunctionRegistryTest {
     assertEquals("#-1 FUNCTION (ADD) EXPECTS AT LEAST 2 ARGUMENTS", eval("add(1)"));
     assertEquals("#-1 FUNCTION (SUB) EXPECTS 2 ARGUMENTS", eval("sub(1)"));
   }
-
 }

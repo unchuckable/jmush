@@ -1,16 +1,18 @@
 package com.github.unchuckable.jmush.mushcode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.github.unchuckable.jmush.model.MushObject;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
-import com.github.unchuckable.jmush.model.MushObject;
 
 public class MushcodeParserTest {
 
   @Test
   public void testParser() {
-    MushcodeParser parser = new MushcodeParser( Collections.emptyMap() );
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
     // %# and \t replacement
     assertEquals("Hello,\t#1.", parser.parse("Hello,%t%#.").evaluateExpression(ctx).toString());
@@ -22,7 +24,8 @@ public class MushcodeParserTest {
   @Test
   public void testInvokerNameSubstitution() {
     MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
 
     // %n is the invoker's name -- not a newline
     assertEquals("vexy", parser.parse("%n").evaluateExpression(ctx).toString());
@@ -34,7 +37,8 @@ public class MushcodeParserTest {
   @Test
   public void testRegisterSubstitution() {
     MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
     ctx.getRegisters()[0] = Value.of("hello");
 
     assertEquals("hello", parser.parse("%q0").evaluateExpression(ctx).toString());
@@ -46,7 +50,8 @@ public class MushcodeParserTest {
   @Test
   public void testForcedEvaluation() {
     MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
     assertEquals("#1", parser.parse("[%#]").evaluateExpression(ctx).toString());
     assertEquals("x#1y", parser.parse("x[%#]y").evaluateExpression(ctx).toString());
@@ -57,9 +62,12 @@ public class MushcodeParserTest {
 
   @Test
   public void testFunctionCallFollowedByTrailingText() {
-    MushcodeParser parser = new MushcodeParser(
-        Collections.singletonMap("f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    MushcodeParser parser =
+        new MushcodeParser(
+            Collections.singletonMap(
+                "f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
     // trailing text after the closing paren must not be swallowed/reparsed
     assertEquals("F(a)REST", parser.parse("f(a)REST").evaluateExpression(ctx).toString());
@@ -68,13 +76,17 @@ public class MushcodeParserTest {
 
   @Test
   public void testLiteralGrouping() {
-    MushcodeParser parser = new MushcodeParser(
-        Collections.singletonMap("f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    MushcodeParser parser =
+        new MushcodeParser(
+            Collections.singletonMap(
+                "f", (ctx, params) -> Value.of("F(" + params.get(0).asString() + ")")));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
     // {} keeps its braces in the output by default (no EV_STRIP) -- it is not stripped,
     // literal-with-no-braces text as previously implemented
-    assertEquals("a{plain text}b", parser.parse("a{plain text}b").evaluateExpression(ctx).toString());
+    assertEquals(
+        "a{plain text}b", parser.parse("a{plain text}b").evaluateExpression(ctx).toString());
 
     // %-substitutions still evaluate inside {}
     assertEquals("a{is #1}b", parser.parse("a{is %#}b").evaluateExpression(ctx).toString());
@@ -83,14 +95,19 @@ public class MushcodeParserTest {
     assertEquals("{f(a)}", parser.parse("{f(a)}").evaluateExpression(ctx).toString());
 
     // EV_STRIP removes the braces
-    assertEquals("plain text", parser.parse("{plain text}", EvalFlags.DEFAULT.withStrip(true))
-        .evaluateExpression(ctx).toString());
+    assertEquals(
+        "plain text",
+        parser
+            .parse("{plain text}", EvalFlags.DEFAULT.withStrip(true))
+            .evaluateExpression(ctx)
+            .toString());
   }
 
   @Test
   public void testLeadingAndTrailingSpaceStripping() {
     MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
-    ExecutionContext ctx = new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
+    ExecutionContext ctx =
+        new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
     // leading/trailing spaces are fully removed, not merely compressed to one
     assertEquals("a b", parser.parse("a b ").evaluateExpression(ctx).toString());
@@ -104,5 +121,4 @@ public class MushcodeParserTest {
     EvalFlags noCompress = EvalFlags.DEFAULT.withSpaceCompression(false);
     assertEquals(" a  b ", parser.parse(" a  b ", noCompress).evaluateExpression(ctx).toString());
   }
-
 }

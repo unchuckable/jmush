@@ -2,9 +2,10 @@ package com.github.unchuckable.jmush.util;
 
 import static com.github.unchuckable.jmush.util.StringUtils.STD_NESTINGS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.google.common.collect.ImmutableSet;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import com.google.common.collect.ImmutableSet;
 
 public class StringUtilsTest {
 

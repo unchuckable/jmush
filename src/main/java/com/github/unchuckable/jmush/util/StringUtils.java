@@ -1,15 +1,15 @@
 package com.github.unchuckable.jmush.util;
 
+import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Set;
-import com.google.common.collect.ImmutableMap;
 
 public class StringUtils {
-  
+
   public interface CharPredicate {
     boolean apply(char character);
   }
-  
+
   public static final Map<Character, Character> STD_NESTINGS =
       ImmutableMap.<Character, Character>builder()
           .put('(', ')')
@@ -17,23 +17,18 @@ public class StringUtils {
           .put('{', '}')
           .build();
 
-  
   private StringUtils() {
     // static helper class, do not instantiate
   }
 
-  
-  public static int findIndexOf(
-      char terminator, String string, int start) {
+  public static int findIndexOf(char terminator, String string, int start) {
     return findIndexOfPredicate(c -> c == terminator, string, start, string.length(), STD_NESTINGS);
   }
 
-  public static int findIndexOf(
-      char terminator, String string, int start, int end) {
+  public static int findIndexOf(char terminator, String string, int start, int end) {
     return findIndexOfPredicate(c -> c == terminator, string, start, end, STD_NESTINGS);
   }
 
-  
   public static int findIndexOf(
       char terminator, String string, int start, int end, Map<Character, Character> nesting) {
     return findIndexOfPredicate(c -> c == terminator, string, start, end, nesting);

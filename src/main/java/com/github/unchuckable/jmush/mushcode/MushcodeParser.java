@@ -1,8 +1,5 @@
 package com.github.unchuckable.jmush.mushcode;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ConstantExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
@@ -11,6 +8,9 @@ import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
 import com.github.unchuckable.jmush.util.StringUtils;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 public class MushcodeParser {
 
@@ -37,7 +37,7 @@ public class MushcodeParser {
     while (index < string.length()) {
       char thisChar = string.charAt(index);
 
-      if ( thisChar == ' ' ) {
+      if (thisChar == ' ') {
         if (flags.isSpaceCompressionEnabled() && lastWasSpace) {
           index++;
           continue;
@@ -142,10 +142,10 @@ public class MushcodeParser {
                 builder.append('\t');
                 break;
               case '#':
-                substitution = ContextExpressions.getCallerRef;
+                substitution = ContextExpressions.CALLER_REF;
                 break;
               case 'n':
-                substitution = ContextExpressions.getCallerName;
+                substitution = ContextExpressions.CALLER_NAME;
                 break;
               case 'q':
                 if (index + 1 < string.length() && Character.isDigit(string.charAt(index + 1))) {
@@ -194,7 +194,8 @@ public class MushcodeParser {
     return this.functionMap.get(name.toLowerCase());
   }
 
-  private List<Expression> getParameters(String string, int startIndex, int endIndex, EvalFlags flags) {
+  private List<Expression> getParameters(
+      String string, int startIndex, int endIndex, EvalFlags flags) {
     List<Expression> parameters = new ArrayList<>();
     int currentIndex = startIndex;
     int nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);

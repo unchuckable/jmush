@@ -4,14 +4,14 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Immutable wrapper around mushcode's string-typed values -- matching the C reference,
- * where every function call parses string input and formats string output; there is no
- * persistent typed value between calls. Construction only via the static {@code of*}
- * factories; consumption only via the {@code as*} accessors.
+ * Immutable wrapper around mushcode's string-typed values -- matching the C reference, where every
+ * function call parses string input and formats string output; there is no persistent typed value
+ * between calls. Construction only via the static {@code of*} factories; consumption only via the
+ * {@code as*} accessors.
  *
  * <p>Numeric/dbref accessors are parse-on-demand and memoized (safe since {@code Value} is
- * immutable); the matching factory pre-populates both the canonical string and the cached
- * field to skip a redundant round-trip when a function already knows its native result type.
+ * immutable); the matching factory pre-populates both the canonical string and the cached field to
+ * skip a redundant round-trip when a function already knows its native result type.
  */
 public class Value {
 
@@ -104,12 +104,12 @@ public class Value {
       Pattern.compile("^\\s*[+-]?(\\d+\\.?\\d*|\\.\\d+)([eE][+-]?\\d+)?");
 
   /**
-   * Matches {@code functions.c}'s {@code aton()} (which is {@code atof} when compiled with
-   * {@code FLOATING_POINTS}, as production is): parses the longest leading numeric prefix
-   * and defaults to {@code 0.0} on anything that doesn't even start looking like a number --
-   * never throws. Deliberately separate from the strict, throwing {@link #asDouble()}: many
-   * arithmetic functions (e.g. {@code add()}/{@code sub()}) are this lenient by design,
-   * oracle-verified (e.g. {@code add(12abc,3)} -> {@code 15}, {@code add(abc,3)} -> {@code 3}).
+   * Matches {@code functions.c}'s {@code aton()} (which is {@code atof} when compiled with {@code
+   * FLOATING_POINTS}, as production is): parses the longest leading numeric prefix and defaults to
+   * {@code 0.0} on anything that doesn't even start looking like a number -- never throws.
+   * Deliberately separate from the strict, throwing {@link #asDouble()}: many arithmetic functions
+   * (e.g. {@code add()}/{@code sub()}) are this lenient by design, oracle-verified (e.g. {@code
+   * add(12abc,3)} -> {@code 15}, {@code add(abc,3)} -> {@code 3}).
    */
   public double aton() {
     Matcher matcher = ATON_PREFIX.matcher(value);
@@ -124,10 +124,10 @@ public class Value {
   }
 
   /**
-   * Matches {@code functions.c}'s {@code fval()}: format with 6 decimal places, strip
-   * trailing fractional zeros (and a then-dangling '.'), and normalize "-0" to "0". Does
-   * not replicate {@code fp_check_weird()}'s bit-level denormal handling -- only the
-   * directly observable NaN/Infinity and "-0" cases.
+   * Matches {@code functions.c}'s {@code fval()}: format with 6 decimal places, strip trailing
+   * fractional zeros (and a then-dangling '.'), and normalize "-0" to "0". Does not replicate
+   * {@code fp_check_weird()}'s bit-level denormal handling -- only the directly observable
+   * NaN/Infinity and "-0" cases.
    */
   private static String formatDouble(double value) {
     if (Double.isNaN(value)) {
@@ -158,5 +158,4 @@ public class Value {
   public String toString() {
     return value;
   }
-
 }

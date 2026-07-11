@@ -22,8 +22,8 @@ public class ValueTest {
 
   @Test
   public void testIntParseFailureWithCustomMessage() {
-    MushValueException e = assertThrows(MushValueException.class,
-        () -> Value.of("abc").asInt("#-1 CUSTOM ERROR"));
+    MushValueException e =
+        assertThrows(MushValueException.class, () -> Value.of("abc").asInt("#-1 CUSTOM ERROR"));
     assertEquals("#-1 CUSTOM ERROR", e.getMessage());
   }
 
@@ -59,11 +59,11 @@ public class ValueTest {
 
   @Test
   public void testDbRefParseFailureThrowsWithDefaultMessage() {
-    MushValueException e = assertThrows(MushValueException.class, () -> Value.of("not-a-ref").asDbRef());
+    MushValueException e =
+        assertThrows(MushValueException.class, () -> Value.of("not-a-ref").asDbRef());
     assertEquals(MushErrors.NOT_A_DBREF, e.getMessage());
 
     assertThrows(MushValueException.class, () -> Value.of("#").asDbRef());
     assertThrows(MushValueException.class, () -> Value.of("#abc").asDbRef());
   }
-
 }

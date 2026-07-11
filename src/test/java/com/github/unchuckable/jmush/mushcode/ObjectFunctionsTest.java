@@ -1,11 +1,12 @@
 package com.github.unchuckable.jmush.mushcode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import java.util.Collections;
-import org.junit.jupiter.api.Test;
+
 import com.github.unchuckable.jmush.model.MushObject;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
 import com.github.unchuckable.jmush.mushcode.functions.builtin.ObjectFunctions;
+import java.util.Collections;
+import org.junit.jupiter.api.Test;
 
 public class ObjectFunctionsTest {
 

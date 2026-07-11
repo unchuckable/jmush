@@ -59,24 +59,23 @@ public enum Flag {
   HEAD('?'),
   VACATION('|'),
   WATCHER('+');
-  
+
   private final char symbol;
-  
-  Flag( char symbol ) {
+
+  Flag(char symbol) {
     this.symbol = symbol;
   }
-  
+
   char getSymbol() {
     return this.symbol;
   }
-  
+
   public static Flag forSymbol(char symbol) {
-    for ( Flag thisFlag : Flag.values() ) {
-      if ( thisFlag.getSymbol() == symbol ) {
+    for (Flag thisFlag : Flag.values()) {
+      if (thisFlag.getSymbol() == symbol) {
         return thisFlag;
       }
     }
     return null;
   }
-  
 }

@@ -1,10 +1,9 @@
 package com.github.unchuckable.jmush.mushcode.functions.builtin;
 
-import java.util.List;
-
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunction;
+import java.util.List;
 
 public class MathFunctions {
 
