@@ -53,6 +53,11 @@ public final class MushErrors {
   public static final String SEPARATOR_MUST_BE_ONE_CHARACTER =
       "#-1 SEPARATOR MUST BE ONE CHARACTER";
 
+  /**
+   * Oracle-verified, directly observed literal: {@code repeat()} whose result would overflow LBUF.
+   */
+  public static final String STRING_TOO_LONG = "#-1 STRING TOO LONG";
+
   private MushErrors() {
     // static holder, do not instantiate
   }

@@ -126,6 +126,11 @@ public class CompatibilityOracleTest {
     return corpusTests("before-after-index-function.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> revwordsRepeatSpaceCenterFunctionsMatchOracle() throws IOException {
+    return corpusTests("revwords-repeat-space-center-function.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

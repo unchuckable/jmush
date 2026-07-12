@@ -559,4 +559,158 @@ public class StringFunctions {
     }
     return Value.of(list.substring(startOffset));
   }
+
+  /**
+   * {@code revwords(list[,sep])}. Reverses the element order of {@code list} (split on {@code sep},
+   * default space, see {@link #parseFillChar}), keeping each element's own characters intact --
+   * functions.c reverses the whole string then re-reverses each {@code split_token}-cut word in
+   * place, which nets out to exactly that. Same arity shape as {@link #words}/{@link #first}/{@link
+   * #rest}/{@link #before}/{@link #after} (see {@link #checkListSepArity}): zero args is {@code
+   * ""}, 1-2 is normal, 3+ errors {@code "1 OR 2 ARGUMENTS"}. Plain join with {@code sep} -- no
+   * {@code iter()}-style "separator only after something's been written" nuance -- oracle-verified
+   * {@code revwords(a--b,-)} is {@code "b--a"}, i.e. {@code ["a","","b"]} reversed to {@code
+   * ["b","","a"]} rejoined with {@code -}.
+   */
+  @MushFunction(name = "revwords")
+  public static Value revwords(ExecutionContext ctx, List<Value> args) {
+    checkListSepArity("REVWORDS", args);
+    if (args.isEmpty()) {
+      return Value.of("");
+    }
+    String list = args.get(0).asString();
+    char sep = args.size() > 1 ? parseFillChar(args.get(1), ' ') : ' ';
+    String[] elements =
+        sep == ' '
+            ? ControlFunctions.splitCompressed(list)
+            : ControlFunctions.splitLiteral(list, sep);
+    StringBuilder result = new StringBuilder();
+    for (int i = elements.length - 1; i >= 0; i--) {
+      if (result.length() > 0) {
+        result.append(sep);
+      }
+      result.append(elements[i]);
+    }
+    return Value.of(result.toString());
+  }
+
+  /**
+   * {@code repeat(str, n)}. {@code n} is {@code atoi()}-truncated. {@code n < 1}, or an empty
+   * {@code str}, silently returns {@code ""}; {@code n == 1} returns {@code str} unchanged.
+   * Otherwise concatenates {@code n} copies of {@code str} -- but functions.c bounds-checks {@code
+   * str}'s length, {@code n} itself, and their product against {@code LBUF_SIZE - 1} (the same
+   * {@link #LBUF_SIZE_MINUS_ONE} {@link #mid} uses) first, erroring {@link
+   * MushErrors#STRING_TOO_LONG} if any is exceeded (oracle-verified {@code repeat(a,999999)}) --
+   * checked in that order so the multiplication only runs once both operands are individually
+   * known-small, no overflow handling needed.
+   */
+  @MushFunction(name = "repeat")
+  public static Value repeat(ExecutionContext ctx, Value str, Value n) {
+    long times = n.atoi();
+    String s = str.asString();
+    if (times < 1 || s.isEmpty()) {
+      return Value.of("");
+    }
+    if (times == 1) {
+      return Value.of(s);
+    }
+    long len = s.length();
+    if (len > LBUF_SIZE_MINUS_ONE
+        || times > LBUF_SIZE_MINUS_ONE
+        || len * times > LBUF_SIZE_MINUS_ONE) {
+      return Value.of(MushErrors.STRING_TOO_LONG);
+    }
+    StringBuilder result = new StringBuilder();
+    for (long i = 0; i < times; i++) {
+      result.append(s);
+    }
+    return Value.of(result.toString());
+  }
+
+  /**
+   * {@code space(n)}. Empty/missing {@code n} returns a single space. Otherwise {@code n} is {@code
+   * atoi()}-truncated, except for one asymmetric wrinkle matching functions.c's {@code fun_space}
+   * exactly: if the lenient parse gives {@code < 1}, the result defaults to a single space
+   * <b>unless</b> {@code n}'s raw text is a strict, cleanly-formatted integer literal (see {@link
+   * #isStrictInteger}) <b>and</b> that value is exactly {@code 0} -- in which case the result is
+   * {@code ""} (zero spaces), not one. So {@code space(0)} is {@code ""}, but {@code
+   * space(-5)}/{@code space(abc)}/{@code space(0.0)} (not strictly-formatted, or non-zero) are all
+   * a single space -- all oracle-verified.
+   */
+  @MushFunction(name = "space")
+  public static Value space(ExecutionContext ctx, Value n) {
+    String s = n.asString();
+    long num = s.isEmpty() ? 1 : n.atoi();
+    if (num < 1 && !(isStrictInteger(s) && num == 0)) {
+      num = 1;
+    }
+    StringBuilder result = new StringBuilder();
+    for (long i = 0; i < num; i++) {
+      result.append(' ');
+    }
+    return Value.of(result.toString());
+  }
+
+  /**
+   * Mirrors functions.c's {@code is_integer()} exactly: optional leading whitespace, an optional
+   * single {@code +}/{@code -} (must be followed by at least one more char), at least one digit,
+   * only digits after that, optional trailing whitespace, and nothing else. Deliberately distinct
+   * from {@link Value#atoi} (lenient truncation) and {@link Value#asInt} (strict but throwing) --
+   * this is a yes/no check on the raw text's format, needed only by {@link #space}.
+   */
+  private static boolean isStrictInteger(String s) {
+    int i = 0;
+    int n = s.length();
+    while (i < n && Character.isWhitespace(s.charAt(i))) {
+      i++;
+    }
+    if (i < n && (s.charAt(i) == '-' || s.charAt(i) == '+')) {
+      i++;
+      if (i >= n) {
+        return false;
+      }
+    }
+    if (i >= n || !Character.isDigit(s.charAt(i))) {
+      return false;
+    }
+    while (i < n && Character.isDigit(s.charAt(i))) {
+      i++;
+    }
+    while (i < n && Character.isWhitespace(s.charAt(i))) {
+      i++;
+    }
+    return i == n;
+  }
+
+  /**
+   * {@code center(str, width[, sep])}. {@code sep} defaults to space (see {@link #parseFillChar},
+   * strict one-char validation -- oracle-verified {@code center(hi,6,xy)} errors {@link
+   * MushErrors#SEPARATOR_MUST_BE_ONE_CHARACTER}, unlike {@code index()}'s laxer handling). {@code
+   * width} is {@code atoi()}-truncated. If {@code str}'s length is already {@code >= width} (covers
+   * {@code width <= 0} automatically), returns {@code str} unchanged -- never an error, never
+   * truncates (oracle-verified {@code center(hi,0)}/{@code center(hi,-3)} both {@code "hi"}).
+   * Otherwise pads both sides with {@code sep}: {@code leadChars = width/2 - len/2} (plain integer
+   * division both terms -- functions.c's literal {@code + .5} float promotion is a no-op once
+   * truncated back to an int, so it's dropped here), {@code trailChars = width - leadChars - len}.
+   */
+  @MushFunction(name = "center", minArgs = 2, maxArgs = 3)
+  public static Value center(ExecutionContext ctx, List<Value> args) {
+    String s = args.get(0).asString();
+    long width = args.get(1).atoi();
+    char sep = args.size() > 2 ? parseFillChar(args.get(2), ' ') : ' ';
+    long len = s.length();
+    if (len >= width) {
+      return Value.of(s);
+    }
+    long leadChars = width / 2 - len / 2;
+    long trailChars = width - leadChars - len;
+    StringBuilder result = new StringBuilder();
+    for (long i = 0; i < leadChars; i++) {
+      result.append(sep);
+    }
+    result.append(s);
+    for (long i = 0; i < trailChars; i++) {
+      result.append(sep);
+    }
+    return Value.of(result.toString());
+  }
 }

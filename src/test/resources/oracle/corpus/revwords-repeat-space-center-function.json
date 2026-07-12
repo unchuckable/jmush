@@ -1,0 +1,149 @@
+{
+  "notes": "revwords(list[,sep]): reverses element order (split on sep, default space, same rule as words/first), keeping each element\u0027s characters intact, plain join with sep. Same zero-args-is-empty-string / 1-2-normal / 3+-errors-1-OR-2-ARGUMENTS arity shape as words/first/rest/before/after. repeat(str,n): n atoi-truncated; n\u003c1 or empty str -\u003e empty; n\u003d\u003d1 -\u003e str unchanged; otherwise repeats str n times, but errors STRING TOO LONG if str\u0027s length, n itself, or their product exceeds LBUF_SIZE-1 (7999). space(n): empty/missing n -\u003e 1 space; otherwise n is atoi-truncated EXCEPT if the lenient parse is \u003c1, the result defaults to 1 space UNLESS n\u0027s raw text is a strict, cleanly-formatted integer literal (is_integer(): optional leading/trailing whitespace, optional single sign, digits only) AND that value is exactly 0, in which case the result is empty (zero spaces). center(str,width[,sep]): sep defaults to space with STRICT one-char validation (unlike index()\u0027s laxer handling); width atoi-truncated; if str\u0027s length is already \u003e\u003d width (covers width\u003c\u003d0), returns str unchanged, never an error/truncation; otherwise pads both sides with sep, leadChars \u003d width/2 - len/2 (integer division), trailChars \u003d width - leadChars - len.",
+  "cases": [
+    {
+      "input": "revwords(a b c)",
+      "expected": "c b a"
+    },
+    {
+      "input": "revwords(a-b-c,-)",
+      "expected": "c-b-a"
+    },
+    {
+      "input": "revwords()",
+      "expected": ""
+    },
+    {
+      "input": "revwords(a)",
+      "expected": "a"
+    },
+    {
+      "input": "revwords(a,b,c)",
+      "expected": "#-1 FUNCTION (REVWORDS) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "revwords(a  b   c)",
+      "expected": "c b a"
+    },
+    {
+      "input": "revwords(,x)",
+      "expected": ""
+    },
+    {
+      "input": "revwords(a--b,-)",
+      "expected": "b--a"
+    },
+    {
+      "input": "revwords(a b c,)",
+      "expected": "c b a"
+    },
+    {
+      "input": "repeat(ab,3)",
+      "expected": "ababab"
+    },
+    {
+      "input": "repeat(ab,0)",
+      "expected": ""
+    },
+    {
+      "input": "repeat(ab,1)",
+      "expected": "ab"
+    },
+    {
+      "input": "repeat(,3)",
+      "expected": ""
+    },
+    {
+      "input": "repeat(a,999999)",
+      "expected": "#-1 STRING TOO LONG"
+    },
+    {
+      "input": "repeat(a,b,c)",
+      "expected": "#-1 FUNCTION (REPEAT) EXPECTS 2 ARGUMENTS"
+    },
+    {
+      "input": "repeat(a)",
+      "expected": "#-1 FUNCTION (REPEAT) EXPECTS 2 ARGUMENTS"
+    },
+    {
+      "input": "repeat()",
+      "expected": "#-1 FUNCTION (REPEAT) EXPECTS 2 ARGUMENTS"
+    },
+    {
+      "input": "[space(3)]X",
+      "expected": "   X"
+    },
+    {
+      "input": "[space()]X",
+      "expected": " X"
+    },
+    {
+      "input": "[space(0)]X",
+      "expected": "X"
+    },
+    {
+      "input": "[space(-5)]X",
+      "expected": " X"
+    },
+    {
+      "input": "[space(abc)]X",
+      "expected": " X"
+    },
+    {
+      "input": "[space(0.0)]X",
+      "expected": " X"
+    },
+    {
+      "input": "[space(  )]X",
+      "expected": " X"
+    },
+    {
+      "input": "[space(3.7)]X",
+      "expected": "   X"
+    },
+    {
+      "input": "space(1,2)",
+      "expected": "#-1 FUNCTION (SPACE) EXPECTS 1 ARGUMENTS"
+    },
+    {
+      "input": "center(hi,6)",
+      "expected": "  hi  "
+    },
+    {
+      "input": "center(hi,7)",
+      "expected": "  hi   "
+    },
+    {
+      "input": "center(hi,1)",
+      "expected": "hi"
+    },
+    {
+      "input": "center(hi,6,-)",
+      "expected": "--hi--"
+    },
+    {
+      "input": "center(hi,6,xy)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "center(hi,0)",
+      "expected": "hi"
+    },
+    {
+      "input": "center(hi,-3)",
+      "expected": "hi"
+    },
+    {
+      "input": "center()",
+      "expected": "#-1 FUNCTION (CENTER) EXPECTS 2 OR 3 ARGUMENTS"
+    },
+    {
+      "input": "center(a,b,c,d)",
+      "expected": "#-1 FUNCTION (CENTER) EXPECTS 2 OR 3 ARGUMENTS"
+    },
+    {
+      "input": "center(hi,6,)",
+      "expected": "  hi  "
+    }
+  ]
+}
