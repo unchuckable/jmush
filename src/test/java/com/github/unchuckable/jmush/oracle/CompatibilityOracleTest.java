@@ -77,6 +77,11 @@ public class CompatibilityOracleTest {
   }
 
   @TestFactory
+  Stream<DynamicTest> stringFunctionsEdgeCasesMatchOracle() throws IOException {
+    return corpusTests("string-functions-edge-cases.json");
+  }
+
+  @TestFactory
   Stream<DynamicTest> switchFunctionMatchesOracle() throws IOException {
     return corpusTests("switch-function.json");
   }

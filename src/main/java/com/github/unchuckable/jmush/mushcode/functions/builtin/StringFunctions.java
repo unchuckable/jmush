@@ -57,17 +57,27 @@ public class StringFunctions {
     return Value.of(s.substring(start));
   }
 
+  // functions.c's LBUF_SIZE (alloc.h) -- mid() rejects a start/len past this, oracle-verified
+  // (mid(hello,8000,2) errors, mid(hello,7999,2) doesn't). Known, accepted gap: a start/len
+  // literal that overflows a 64-bit long (e.g. a 20-digit number) won't trip this check the same
+  // way the C reference's own (implementation-defined) overflow behavior does -- Value.atoi()
+  // collapses any unparseable-as-long input to 0 rather than replicating C's overflow value,
+  // and reworking that shared, widely-used contract isn't worth it for this vanishingly-unlikely
+  // input shape.
+  private static final long LBUF_SIZE_MINUS_ONE = 7999;
+
   /**
    * {@code mid(str, start, len)}. Both args {@code atoi()}-truncated. Unlike {@link #left}/{@link
-   * #right}, negative input is an error ({@link MushErrors#OUT_OF_RANGE}), not silently clamped.
-   * Returns "" (not an error) if {@code start} is past the end of the string or {@code len == 0};
-   * otherwise clamps {@code start + len} down to the string's length.
+   * #right}, negative or too-large (see {@link #LBUF_SIZE_MINUS_ONE}) input is an error ({@link
+   * MushErrors#OUT_OF_RANGE}), not silently clamped. Returns "" (not an error) if {@code start} is
+   * past the end of the string or {@code len == 0}; otherwise clamps {@code start + len} down to
+   * the string's length.
    */
   @MushFunction(name = "mid")
   public static Value mid(ExecutionContext ctx, Value str, Value startArg, Value lenArg) {
     long start = startArg.atoi();
     long len = lenArg.atoi();
-    if (start < 0 || len < 0) {
+    if (start < 0 || len < 0 || start > LBUF_SIZE_MINUS_ONE || len > LBUF_SIZE_MINUS_ONE) {
       throw new MushValueException(MushErrors.OUT_OF_RANGE);
     }
     String s = str.asString();

@@ -193,6 +193,12 @@ public class FunctionRegistry {
     if (maxArgs == Integer.MAX_VALUE) {
       return "AT LEAST " + minArgs;
     }
+    // Oracle-verified: a two-value range (e.g. ljust/rjust's 2-3) reads "N OR M ARGUMENTS", not
+    // "BETWEEN N AND M ARGUMENTS" -- that phrasing only kicks in for a wider range (e.g. trim's
+    // 1-3, confirmed "BETWEEN 1 AND 3 ARGUMENTS").
+    if (maxArgs - minArgs == 1) {
+      return minArgs + " OR " + maxArgs;
+    }
     return "BETWEEN " + minArgs + " AND " + maxArgs;
   }
 
