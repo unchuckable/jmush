@@ -26,6 +26,11 @@ public class CompatibilityOracleTest {
   private static final String CALLER_NAME = "Wizard";
   private static final String CALLER_DBREF = "#1";
 
+  // the parser is stateless (all per-evaluation state lives in ExecutionContext), so one
+  // instance serves every snippet -- rebuilding the reflection/LambdaMetafactory registry per
+  // dynamic test was pure waste
+  private static final MushcodeParser PARSER = new MushcodeParser(FunctionRegistry.build());
+
   @TestFactory
   Stream<DynamicTest> substitutionsMatchOracle() throws IOException {
     return corpusTests("substitutions.json");
@@ -104,10 +109,9 @@ public class CompatibilityOracleTest {
   }
 
   private String evaluate(String mushcode) {
-    MushcodeParser parser = new MushcodeParser(FunctionRegistry.build());
     ExecutionContext ctx =
         new ExecutionContext()
             .withCaller(new MushObject().withName(CALLER_NAME).withDbRefString(CALLER_DBREF));
-    return parser.parse(mushcode).evaluateExpression(ctx).toString();
+    return PARSER.parse(mushcode).evaluateExpression(ctx).toString();
   }
 }

@@ -10,8 +10,10 @@ import org.junit.jupiter.api.Test;
 
 public class FunctionRegistryTest {
 
+  private static final MushcodeParser PARSER = new MushcodeParser(FunctionRegistry.build());
+
   private Expression parse(String code) {
-    return new MushcodeParser(FunctionRegistry.build()).parse(code);
+    return PARSER.parse(code);
   }
 
   private String eval(String code) {
