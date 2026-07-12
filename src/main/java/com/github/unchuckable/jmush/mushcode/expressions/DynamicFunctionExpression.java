@@ -1,10 +1,12 @@
 package com.github.unchuckable.jmush.mushcode.expressions;
 
+import com.github.unchuckable.jmush.mushcode.EvalFlags;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
+import com.github.unchuckable.jmush.mushcode.MushcodeParser;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
-import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -13,10 +15,20 @@ import java.util.List;
  * interpreter's *output* buffer (eval.c's {@code oldp}/{@code hashfind} mechanism), so a
  * substitution can supply a function name; {@code MushcodeParser} normally resolves names
  * statically at parse time, and only builds this node when the accumulated name-candidate contains
- * a non-constant piece. Arguments are parsed by the caller ({@code
+ * a non-constant piece. Arguments are eagerly comma-split by the caller ({@code
  * MushcodeParser.handleFunctionCall}, the same {@code getParameters} call the static path uses) and
- * handed over pre-parsed -- the comma-split is the same whichever name resolves, so only name
- * resolution, and with it the invoke-vs-literal-fallback decision, is deferred to evaluation time.
+ * handed over pre-parsed as {@link #arguments} -- correct for the common case, since most resolved
+ * names won't be {@code catenateArgs} functions (see {@code @MushFunction#catenateArgs}'s javadoc).
+ * For the rare case where the resolved name *does* catenate (oracle-verified: {@code
+ * [setq(0,lcstr)]%q0(HELLO,add(1,2))} resolves identically to calling {@code lcstr(...)} directly
+ * -- there's no static/dynamic split in the real mechanism, since C resolves the name from
+ * accumulated text regardless of where that text came from), the raw, not-yet-comma-split argument
+ * span ({@link #rawArguments}) is also retained and re-parsed as a single expression on demand via
+ * {@link #parser}. This can't be memoized across evaluations of the same parsed tree, since the
+ * resolved name -- and thus the split decision -- can legitimately differ between separate
+ * evaluations (e.g. inside a loop where the register holds a different function name each
+ * iteration); it's cheap enough to just re-parse each time it's actually needed, and the common
+ * (non-catenating) path pays nothing extra either way.
  *
  * <p>Known divergence from the oracle: when the resolved name doesn't match a function, real
  * TinyMUSH continues scanning the parenthesized text char-by-char with a *contaminated* accumulator
@@ -30,20 +42,35 @@ public class DynamicFunctionExpression implements Expression {
   private final FunctionRegistry functionRegistry;
   private final Expression nameExpression;
   private final List<Expression> arguments;
+  private final String rawArguments;
+  private final EvalFlags flags;
+  private final MushcodeParser parser;
 
   public DynamicFunctionExpression(
-      FunctionRegistry functionRegistry, Expression nameExpression, List<Expression> arguments) {
+      FunctionRegistry functionRegistry,
+      Expression nameExpression,
+      List<Expression> arguments,
+      String rawArguments,
+      EvalFlags flags,
+      MushcodeParser parser) {
     this.functionRegistry = functionRegistry;
     this.nameExpression = nameExpression;
     this.arguments = arguments;
+    this.rawArguments = rawArguments;
+    this.flags = flags;
+    this.parser = parser;
   }
 
   @Override
   public Value evaluateExpression(ExecutionContext context) {
     String name = nameExpression.evaluateExpression(context).asString();
-    MushFunctionHandler function = functionRegistry.getFunction(name);
-    if (function != null) {
-      return function.execute(context, arguments);
+    FunctionRegistry.FunctionEntry entry = functionRegistry.lookup(name);
+    if (entry != null) {
+      List<Expression> resolvedArguments =
+          entry.catenateArgs()
+              ? Collections.singletonList(parser.parse(rawArguments, flags))
+              : arguments;
+      return entry.handler().execute(context, resolvedArguments);
     }
 
     StringBuilder fallback = new StringBuilder(name).append('(');

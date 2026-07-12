@@ -29,6 +29,20 @@ import java.lang.annotation.Target;
  * fixed-arity {@code Value...} shape, {@link FunctionRegistry} derives the required argument count
  * directly from the parameter count -- these are ignored there, so there's no way for the declared
  * arity and the annotation to drift out of sync.
+ *
+ * <p>Set {@link #catenateArgs} to {@code true} for a function matching one of the 13 entries in
+ * {@code functions.c}'s table with a negative {@code nargs} ({@code CAPSTR}, {@code ESCAPE}, {@code
+ * HTML_ESCAPE}, {@code HTML_UNESCAPE}, {@code LCSTR}, {@code REVERSE}, {@code S}, {@code SEARCH},
+ * {@code SECURE}, {@code STRLEN}, {@code UCSTR}, {@code URL_ESCAPE}, {@code URL_UNESCAPE}) --
+ * {@code -1} is the only negative value used anywhere in that table, and it means {@code
+ * parse_arglist} does not comma-split the argument at all: the whole parenthesized text is
+ * evaluated as a single expression (commas and all, literal except where they still happen to parse
+ * as nested constructs) rather than split at top-level commas first. In practice always paired with
+ * the single-{@code Value} {@code MushFunction1} shape, since every real {@code nargs = -1}
+ * function takes exactly one (uncomma-split) argument -- {@link
+ * com.github.unchuckable.jmush.mushcode.MushcodeParser} is what actually skips comma-splitting for
+ * a {@code catenateArgs} function, both for statically- and dynamically-resolved names (see {@link
+ * com.github.unchuckable.jmush.mushcode.expressions.DynamicFunctionExpression}).
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
@@ -41,4 +55,6 @@ public @interface MushFunction {
   int maxArgs() default Integer.MAX_VALUE;
 
   boolean lazy() default false;
+
+  boolean catenateArgs() default false;
 }

@@ -11,9 +11,9 @@ import com.github.unchuckable.jmush.mushcode.expressions.LoopTokenExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
-import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
 import com.github.unchuckable.jmush.util.StringUtils;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class MushcodeParser {
@@ -240,18 +240,28 @@ public class MushcodeParser {
         for (Expression piece : pendingName) {
           nameBuilder.append(piece.evaluateExpression(null).asString());
         }
-        MushFunctionHandler function = functionRegistry.getFunction(nameBuilder.toString());
-        if (function == null) {
+        String name = nameBuilder.toString();
+        FunctionRegistry.FunctionEntry entry = functionRegistry.lookup(name);
+        if (entry == null) {
           builder.append('(');
           functionCheckAvailable = false;
           return;
         }
-        List<Expression> parameters = getParameters(string, index + 1, endIndex, flags);
+        // catenateArgs functions (functions.c's negative-nargs, e.g. lcstr()/strlen()) don't
+        // comma-split their sole argument at all -- the whole span is one expression, commas
+        // included as literal text. See @MushFunction#catenateArgs's javadoc.
+        List<Expression> parameters =
+            entry.catenateArgs()
+                ? Collections.singletonList(parse(string.substring(index + 1, endIndex), flags))
+                : getParameters(string, index + 1, endIndex, flags);
         builder.setLength(0);
-        finishedExpressions.add(new FunctionExpression(function, parameters));
+        finishedExpressions.add(new FunctionExpression(entry.handler(), parameters));
       } else {
         // The name depends on a substitution/function result -- defer name resolution (and the
         // invoke-vs-literal-fallback decision) to evaluation time (see DynamicFunctionExpression).
+        // Arguments are eagerly comma-split here too (the common case -- most resolved names
+        // won't catenate), but the raw span/flags are also retained so DynamicFunctionExpression
+        // can re-parse as one un-split expression in the rare case the resolved name does.
         while (finishedExpressions.size() > nameBoundary) {
           finishedExpressions.remove(finishedExpressions.size() - 1);
         }
@@ -259,8 +269,15 @@ public class MushcodeParser {
         Expression nameExpression =
             pendingName.size() == 1 ? pendingName.get(0) : new ConcatExpression(pendingName);
         List<Expression> arguments = getParameters(string, index + 1, endIndex, flags);
+        String rawArguments = string.substring(index + 1, endIndex);
         finishedExpressions.add(
-            new DynamicFunctionExpression(functionRegistry, nameExpression, arguments));
+            new DynamicFunctionExpression(
+                functionRegistry,
+                nameExpression,
+                arguments,
+                rawArguments,
+                flags,
+                MushcodeParser.this));
       }
       index = endIndex;
       nameBoundary = finishedExpressions.size();

@@ -24,16 +24,16 @@ import java.util.Map;
 
 /**
  * Reflects over an explicit, hand-maintained list of provider classes and builds a lookup of {@code
- * name -> MushFunctionHandler}, one entry per {@code @MushFunction}-annotated method. {@link
- * MushcodeParser} holds a reference to a {@code FunctionRegistry} instance (via {@link #build()})
- * rather than the raw {@code Map} directly -- separates "how function names resolve" from "how
- * mushcode gets scanned," and lets a future caller that only needs name resolution (not parsing)
- * depend on this type instead of the whole parser. Adapters are built once here via {@code
- * MethodHandle}/{@code LambdaMetafactory} (not per-call reflective {@code Method.invoke}), so the
- * natural-parameter style costs nothing at runtime once JIT-warmed -- the same mechanism the JVM
- * uses for ordinary lambdas/method references. Generic arg-count validation and {@link
- * MushValueException} -> {@code #-1 ...} conversion are applied here too, so individual function
- * bodies stay free of that boilerplate.
+ * name -> FunctionEntry} (the handler plus its per-function flags), one entry per
+ * {@code @MushFunction}-annotated method. {@link MushcodeParser} holds a reference to a {@code
+ * FunctionRegistry} instance (via {@link #build()}) rather than the raw {@code Map} directly --
+ * separates "how function names resolve" from "how mushcode gets scanned," and lets a future caller
+ * that only needs name resolution (not parsing) depend on this type instead of the whole parser.
+ * Adapters are built once here via {@code MethodHandle}/{@code LambdaMetafactory} (not per-call
+ * reflective {@code Method.invoke}), so the natural-parameter style costs nothing at runtime once
+ * JIT-warmed -- the same mechanism the JVM uses for ordinary lambdas/method references. Generic
+ * arg-count validation and {@link MushValueException} -> {@code #-1 ...} conversion are applied
+ * here too, so individual function bodies stay free of that boilerplate.
  */
 public class FunctionRegistry {
 
@@ -65,23 +65,38 @@ public class FunctionRegistry {
     Value execute(ExecutionContext context, List<Value> parameters);
   }
 
-  private final Map<String, MushFunctionHandler> handlers;
+  /**
+   * A resolved function's handler bundled with its per-function flags -- currently just {@code
+   * catenateArgs} (mirroring {@code functions.c}'s negative-{@code nargs} functions: the sole
+   * argument shouldn't be comma-split at all). Both {@code MushcodeParser.handleFunctionCall} and
+   * {@code DynamicFunctionExpression} need the flag alongside the handler at the same lookup, so
+   * bundling them here means one map lookup resolves both, rather than two separate lookups for the
+   * same name.
+   */
+  public record FunctionEntry(MushFunctionHandler handler, boolean catenateArgs) {}
 
-  private FunctionRegistry(Map<String, MushFunctionHandler> handlers) {
-    this.handlers = handlers;
+  private final Map<String, FunctionEntry> functions;
+
+  private FunctionRegistry(Map<String, FunctionEntry> functions) {
+    this.functions = functions;
   }
 
   /**
    * Wraps an arbitrary, already-built {@code name -> MushFunctionHandler} map directly, bypassing
    * the {@code @MushFunction} reflection pipeline entirely -- for tests that want to inject a stub
-   * handler without a real provider class.
+   * handler without a real provider class. No name catenates under this constructor, since there's
+   * no annotation to read {@code catenateArgs} from.
    */
   public static FunctionRegistry of(Map<String, MushFunctionHandler> handlers) {
-    return new FunctionRegistry(new HashMap<>(handlers));
+    Map<String, FunctionEntry> functions = new HashMap<>();
+    for (Map.Entry<String, MushFunctionHandler> entry : handlers.entrySet()) {
+      functions.put(entry.getKey(), new FunctionEntry(entry.getValue(), false));
+    }
+    return new FunctionRegistry(functions);
   }
 
   public static FunctionRegistry build() {
-    Map<String, MushFunctionHandler> registry = new HashMap<>();
+    Map<String, FunctionEntry> registry = new HashMap<>();
     MethodHandles.Lookup lookup = MethodHandles.lookup();
     for (Class<?> providerClass : PROVIDER_CLASSES) {
       for (Method method : providerClass.getDeclaredMethods()) {
@@ -89,14 +104,17 @@ public class FunctionRegistry {
         if (annotation == null) {
           continue;
         }
-        registry.put(annotation.name().toLowerCase(), buildHandler(lookup, method, annotation));
+        String name = annotation.name().toLowerCase();
+        MushFunctionHandler handler = buildHandler(lookup, method, annotation);
+        registry.put(name, new FunctionEntry(handler, annotation.catenateArgs()));
       }
     }
     return new FunctionRegistry(registry);
   }
 
-  public MushFunctionHandler getFunction(String name) {
-    return handlers.get(name.toLowerCase());
+  /** Returns {@code null} if {@code name} doesn't resolve to a known function. */
+  public FunctionEntry lookup(String name) {
+    return functions.get(name.toLowerCase());
   }
 
   private static MushFunctionHandler buildHandler(

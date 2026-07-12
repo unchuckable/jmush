@@ -1,0 +1,85 @@
+{
+  "notes": "lcstr/ucstr/capstr/strlen all have nargs=-1 in functions.c's table -- the only negative value used anywhere in that table -- meaning parse_arglist does NOT comma-split their argument at all: the whole parenthesized text is evaluated as a single expression (commas and all, literal except where they still happen to parse as nested constructs). This isn't a special no-eval rule -- lcstr(add(1,2)) (no comma) evaluates normally to 3 -- it falls out of jmush's already-correct one-shot-EV_FCHECK-per-scan behavior: scanning \"a,add(1,2)\" as one blob, the name candidate at the first ( is \"a,add\" (not a real function), so it falls back to literal and permanently burns that scan's one-shot budget, meaning add(1,2)'s own ( can never fire either. (Forced-eval ([...]) inherits EV_FMAND into the nested argument evaluation, turning a failed name match into a hard error instead of a literal fallback -- oracle-confirmed [lcstr(HELLO,add(1,2))] gives '#-1 function (hello,add) not found', but EV_FMAND itself is a pre-existing, separately-tracked gap (see EvalFlags's javadoc, \"not modeled... needs the Value error-message system\"), so no corpus case here covers it.) The dynamic-function-name path ([setq(0,lcstr)]%q0(...)) resolves identically to the static case -- oracle-verified -- since real TinyMUSH has no static/dynamic split in its name-resolution mechanism.",
+  "cases": [
+    {
+      "input": "lcstr(HELLO World)",
+      "expected": "hello world"
+    },
+    {
+      "input": "ucstr(HELLO World)",
+      "expected": "HELLO WORLD"
+    },
+    {
+      "input": "capstr(hello world)",
+      "expected": "Hello world"
+    },
+    {
+      "input": "capstr(H)",
+      "expected": "H"
+    },
+    {
+      "input": "lcstr()",
+      "expected": ""
+    },
+    {
+      "input": "ucstr()",
+      "expected": ""
+    },
+    {
+      "input": "capstr()",
+      "expected": ""
+    },
+    {
+      "input": "lcstr(add(1,2))",
+      "expected": "3"
+    },
+    {
+      "input": "lcstr(a,b)",
+      "expected": "a,b"
+    },
+    {
+      "input": "lcstr(a,add(1,2))",
+      "expected": "a,add(1,2)"
+    },
+    {
+      "input": "capstr(a,b)",
+      "expected": "A,b"
+    },
+    {
+      "input": "ucstr(a,b)",
+      "expected": "A,B"
+    },
+    {
+      "input": "lcstr(a,add(1,2))X",
+      "expected": "a,add(1,2)X"
+    },
+    {
+      "input": "strlen(a,b)",
+      "expected": "3"
+    },
+    {
+      "input": "strlen(hello,world)",
+      "expected": "11"
+    },
+    {
+      "input": "strlen(a,add(1,2))",
+      "expected": "10"
+    },
+    {
+      "input": "strlen(hello world)",
+      "expected": "11"
+    },
+    {
+      "input": "[setq(0,lcstr)]%q0(HELLO,add(1,2))",
+      "expected": "hello,add(1,2)"
+    },
+    {
+      "input": "[setq(0,strlen)]%q0(a,b)",
+      "expected": "3"
+    },
+    {
+      "input": "[setq(0,add)]%q0(1,2)",
+      "expected": "3"
+    }
+  ]
+}

@@ -24,10 +24,47 @@ public class StringFunctions {
 
   // functions.c's strlen() runs the argument through strip_ansi() first -- jmush never produces
   // ANSI escape codes yet (see DESIGN.md's deferred "ANSI-aware string handling" item), so plain
-  // String.length() is equivalent for now.
-  @MushFunction(name = "strlen")
+  // String.length() is equivalent for now. catenateArgs = true: STRLEN has nargs = -1 in
+  // functions.c's table, so its argument is never comma-split (oracle-verified strlen(a,b) is 3,
+  // the length of literal "a,b", not an arg-count error) -- see @MushFunction#catenateArgs.
+  @MushFunction(name = "strlen", catenateArgs = true)
   public static Value strlen(ExecutionContext ctx, Value a) {
     return Value.ofInt(a.asString().length());
+  }
+
+  /**
+   * {@code lcstr(str)}. Lowercases the whole string. {@code catenateArgs = true} (see {@link
+   * #strlen}'s note and {@code @MushFunction#catenateArgs}): {@code str} is never comma-split, so
+   * {@code lcstr(a,add(1,2))} is {@code "a,add(1,2)"} (the literal, unevaluated text -- {@code
+   * add(1,2)}'s own {@code (} never gets a function-check chance, since the one-shot check was
+   * already burned on the failed {@code "a,add"} name candidate), not {@code "a,3"} -- while {@code
+   * lcstr(add(1,2))} (no comma) evaluates normally to {@code "3"}.
+   */
+  @MushFunction(name = "lcstr", catenateArgs = true)
+  public static Value lcstr(ExecutionContext ctx, Value str) {
+    return Value.of(str.asString().toLowerCase());
+  }
+
+  /** {@code ucstr(str)} -- like {@link #lcstr}, but uppercases. */
+  @MushFunction(name = "ucstr", catenateArgs = true)
+  public static Value ucstr(ExecutionContext ctx, Value str) {
+    return Value.of(str.asString().toUpperCase());
+  }
+
+  /**
+   * {@code capstr(str)} -- like {@link #lcstr}/{@link #ucstr} (same {@code catenateArgs}
+   * semantics), but leaves {@code str} otherwise unchanged and uppercases only its first character
+   * (a no-op via {@link Character#toUpperCase} if that character isn't a cased letter). Empty
+   * {@code str} (including zero args, since {@code catenateArgs} parses an empty span to {@code
+   * Value.of("")}) returns {@code ""}.
+   */
+  @MushFunction(name = "capstr", catenateArgs = true)
+  public static Value capstr(ExecutionContext ctx, Value str) {
+    String s = str.asString();
+    if (s.isEmpty()) {
+      return Value.of("");
+    }
+    return Value.of(Character.toUpperCase(s.charAt(0)) + s.substring(1));
   }
 
   /**
