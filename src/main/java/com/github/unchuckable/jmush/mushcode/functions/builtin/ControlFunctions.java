@@ -44,6 +44,19 @@ public class ControlFunctions {
     return Value.of("");
   }
 
+  /**
+   * {@code ifelse(condition, iftrue, iffalse)}. Evaluates {@code condition} once, then only the
+   * winning branch (oracle-verified via {@code setr()} side effects: the losing branch never
+   * fires). Truthiness is {@link Value#isTruthy()} (functions.c's {@code xlate()}), not the {@code
+   * atoi}-truncating check {@code not()}/{@code and()}/{@code or()} use -- e.g. {@code
+   * ifelse(abc,yes,no)} is {@code "yes"}, unlike {@code not(abc)} treating {@code "abc"} as falsy.
+   */
+  @MushFunction(name = "ifelse", lazy = true, minArgs = 3, maxArgs = 3)
+  public static Value ifelseFunction(ExecutionContext context, List<Expression> args) {
+    boolean condition = args.get(0).evaluateExpression(context).isTruthy();
+    return args.get(condition ? 1 : 2).evaluateExpression(context);
+  }
+
   private ControlFunctions() {
     // static provider class, do not instantiate
   }

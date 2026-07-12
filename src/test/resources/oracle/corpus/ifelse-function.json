@@ -1,0 +1,53 @@
+{
+  "notes": "ifelse(condition, iftrue, iffalse) -- evaluates condition once, then only the winning branch (verified via setr() side effects: the losing branch never fires). Truthiness is Value.isTruthy() (functions.c\u0027s xlate()), distinct from the atoi-truncating check not()/and()/or() use: a non-numeric non-empty string is truthy under ifelse() (e.g. \"abc\", \"0.5\" -- not a plain integer) but falsy under not()\u0027s atoi truncation.",
+  "cases": [
+    {
+      "input": "ifelse(abc,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "ifelse(0,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "ifelse(,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "ifelse(-5,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "ifelse(0.5,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "ifelse(1,yes,no)",
+      "expected": "yes"
+    },
+    {
+      "input": "ifelse( ,yes,no)",
+      "expected": "no"
+    },
+    {
+      "input": "ifelse(1,[setr(0,y)]Y,[setr(0,n)]N)%q0",
+      "expected": "yYy"
+    },
+    {
+      "input": "ifelse(0,[setr(0,y)]Y,[setr(0,n)]N)%q0",
+      "expected": "nNn"
+    },
+    {
+      "input": "ifelse(1,2)",
+      "expected": "#-1 FUNCTION (IFELSE) EXPECTS 3 ARGUMENTS"
+    },
+    {
+      "input": "ifelse()",
+      "expected": "#-1 FUNCTION (IFELSE) EXPECTS 3 ARGUMENTS"
+    },
+    {
+      "input": "ifelse(1,2,3,4)",
+      "expected": "#-1 FUNCTION (IFELSE) EXPECTS 3 ARGUMENTS"
+    }
+  ]
+}

@@ -96,6 +96,11 @@ public class CompatibilityOracleTest {
     return corpusTests("parser-edge-cases.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> ifelseFunctionMatchesOracle() throws IOException {
+    return corpusTests("ifelse-function.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

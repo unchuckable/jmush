@@ -193,6 +193,39 @@ public class Value implements Expression {
   }
 
   /**
+   * Matches {@code functions.c}'s {@code xlate()} -- the "is this MUSH-boolean-true" check used by
+   * {@code ifelse()}/{@code nonzero()} (and, in the reference source, the lazy {@code land()}/
+   * {@code lor()} short-circuit family, not yet ported here). Deliberately distinct from {@link
+   * #atoi} truncation: a non-numeric string is falsy under {@code atoi} (truncates to {@code 0},
+   * e.g. {@code not(abc)} -> {@code 1}) but *truthy* under {@code xlate} (oracle-verified, e.g.
+   * {@code ifelse(abc,yes,no)} -> {@code yes}, {@code ifelse(0.5,yes,no)} -> {@code yes} since
+   * {@code "0.5"} isn't a plain integer). Rule: empty (after trimming) is false; a plain integer is
+   * true iff nonzero; anything else non-empty is true -- except a leading {@code #}, which gets
+   * dbref-specific handling ({@code #<non-negative int>} is true; a {@code "#-1 ..."} error string
+   * is false, matching the common {@code #-1 ...} failure-message convention; other {@code #}-led
+   * text is true).
+   */
+  public boolean isTruthy() {
+    String trimmed = value.trim();
+    if (trimmed.startsWith("#")) {
+      String rest = trimmed.substring(1);
+      try {
+        return Long.parseLong(rest) >= 0;
+      } catch (NumberFormatException e) {
+        return !rest.startsWith("-1 ");
+      }
+    }
+    if (trimmed.isEmpty()) {
+      return false;
+    }
+    try {
+      return Long.parseLong(trimmed) != 0;
+    } catch (NumberFormatException e) {
+      return true;
+    }
+  }
+
+  /**
    * Matches {@code functions.c}'s {@code fval()}: format with 6 decimal places, strip trailing
    * fractional zeros (and a then-dangling '.'), and normalize "-0" to "0". Does not replicate
    * {@code fp_check_weird()}'s bit-level denormal handling -- only the directly observable
