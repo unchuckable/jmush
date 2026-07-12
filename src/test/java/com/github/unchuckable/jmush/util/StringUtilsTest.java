@@ -3,7 +3,8 @@ package com.github.unchuckable.jmush.util;
 import static com.github.unchuckable.jmush.util.StringUtils.STD_NESTINGS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.google.common.collect.ImmutableSet;
+import java.util.Set;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +52,6 @@ public class StringUtilsTest {
     assertEquals(
         7,
         StringUtils.findIndexOfSet(
-            ImmutableSet.of('(', '[', '{', '%'), "Hello, %#", 0, 9, STD_NESTINGS));
+            Set.of('(', '[', '{', '%'), "Hello, %#", 0, 9, STD_NESTINGS));
   }
 }

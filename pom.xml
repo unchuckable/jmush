@@ -10,21 +10,17 @@
   	<maven.compiler.release>21</maven.compiler.release>
 
 	<jacoco.version>0.8.12</jacoco.version>
+	<junit.version>6.1.1</junit.version>
 	<spotless.version>2.43.0</spotless.version>
   </properties>
   
   
   <dependencies>
   	<dependency>
-  		<groupId>com.google.guava</groupId>
-  		<artifactId>guava</artifactId>
-  		<version>33.6.0-jre</version>
-  	</dependency>
-  
-  	<dependency>
   		<groupId>org.junit.jupiter</groupId>
   		<artifactId>junit-jupiter</artifactId>
-  		<version>5.5.2</version>
+  		<version>${junit.version}</version>
+		<scope>test</scope>
   	</dependency>
 
   	<dependency>

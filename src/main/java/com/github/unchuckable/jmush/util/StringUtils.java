@@ -1,6 +1,5 @@
 package com.github.unchuckable.jmush.util;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -11,11 +10,7 @@ public class StringUtils {
   }
 
   public static final Map<Character, Character> STD_NESTINGS =
-      ImmutableMap.<Character, Character>builder()
-          .put('(', ')')
-          .put('[', ']')
-          .put('{', '}')
-          .build();
+      Map.of('(',')','[', ']','{', '}');
 
   private StringUtils() {
     // static helper class, do not instantiate
