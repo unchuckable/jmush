@@ -5,6 +5,9 @@ import com.github.unchuckable.jmush.mushcode.expressions.ConcatExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.ContextExpressions;
 import com.github.unchuckable.jmush.mushcode.expressions.DynamicFunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
+import com.github.unchuckable.jmush.mushcode.expressions.LoopDepthExpression;
+import com.github.unchuckable.jmush.mushcode.expressions.LoopIndexExpression;
+import com.github.unchuckable.jmush.mushcode.expressions.LoopTokenExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
@@ -127,6 +130,9 @@ public class MushcodeParser {
             break;
           case '%':
             handleSubstitution();
+            break;
+          case '#':
+            handleLoopToken();
             break;
           default:
             builder.append(thisChar);
@@ -302,6 +308,39 @@ public class MushcodeParser {
         flushBuilder();
         finishedExpressions.add(substitution);
       }
+    }
+
+    /**
+     * {@code ##}/{@code #@}/{@code #!} -- {@code iter()}'s loop-element/index/depth tokens
+     * (eval.c:1088-1117). These aren't {@code %}-prefixed, so they need their own tokenizer case; a
+     * bare {@code #} not followed by one of the three recognized chars is just a literal {@code #}
+     * -- the next char is left untouched for the main loop to process normally next, matching
+     * {@code %}'s existing peek-and-fall-through style.
+     */
+    private void handleLoopToken() {
+      if (index + 1 < string.length()) {
+        Expression substitution;
+        switch (string.charAt(index + 1)) {
+          case '#':
+            substitution = new LoopTokenExpression();
+            break;
+          case '@':
+            substitution = new LoopIndexExpression();
+            break;
+          case '!':
+            substitution = new LoopDepthExpression();
+            break;
+          default:
+            substitution = null;
+        }
+        if (substitution != null) {
+          index++;
+          flushBuilder();
+          finishedExpressions.add(substitution);
+          return;
+        }
+      }
+      builder.append('#');
     }
 
     private Expression finish() {

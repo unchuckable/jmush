@@ -157,11 +157,13 @@ public class StringFunctions {
   }
 
   /**
-   * Shared {@code trim}/{@code ljust}/{@code rjust} fill/trim-character validation: empty means
-   * {@code defaultChar}, exactly one char is used as-is, more than one is {@link
-   * MushErrors#SEPARATOR_MUST_BE_ONE_CHARACTER} -- not "use the first character".
+   * Shared {@code trim}/{@code ljust}/{@code rjust}/{@code iter} fill/trim/separator-character
+   * validation: empty means {@code defaultChar}, exactly one char is used as-is, more than one is
+   * {@link MushErrors#SEPARATOR_MUST_BE_ONE_CHARACTER} -- not "use the first character". Package-
+   * visible so {@code ControlFunctions.iterFunction} can reuse it for {@code iter()}'s {@code
+   * sep}/{@code osep} args (same underlying C {@code delim_check} validation).
    */
-  private static char parseFillChar(Value value, char defaultChar) {
+  static char parseFillChar(Value value, char defaultChar) {
     String s = value.asString();
     if (s.isEmpty()) {
       return defaultChar;

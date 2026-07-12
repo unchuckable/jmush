@@ -106,6 +106,11 @@ public class CompatibilityOracleTest {
     return corpusTests("ifelse-function.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> iterFunctionMatchesOracle() throws IOException {
+    return corpusTests("iter-function.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

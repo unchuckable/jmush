@@ -1,0 +1,161 @@
+{
+  "notes": "iter(list, body[, sep[, osep]]) -- evaluates list once, splits on sep (default space), evaluates body once per element with ##/#@/#! resolving to the element/its 1-based index/enclosing nesting depth, joins results with osep. Both list() (sends results to the enactor via notify(), no messaging system in jmush yet) and loop() (legacy raw-text-substitution mechanism, explicitly called out as such in the C source) are out of scope. Key findings, all oracle-verified: (1) outside any loop, ##/#@/#! are literal text, not empty; (2) osep join follows a \u0027no separator until something\u0027s been written\u0027 rule -- prepended before every result after the first one actually appended, even if that result is itself empty, so trailing empties still get a separator but leading ones don\u0027t; (3) the default space separator collapses runs and trims leading/trailing (like eval.c\u0027s general at_space compression), but a custom single-char separator does a plain non-collapsing split (consecutive/leading/trailing occurrences produce empty elements); (4) an empty (post-trim) list is zero iterations, not one empty-string element; (5) nesting: only the innermost loop\u0027s ##/#@ are visible, #! is depth-of-enclosing-loop (0 if none); (6) ## used as a dynamic function name composes correctly with DynamicFunctionExpression.",
+  "cases": [
+    {
+      "input": "iter(a b c,[##])",
+      "expected": "a b c"
+    },
+    {
+      "input": "iter(a b c,##-#@)",
+      "expected": "a-1 b-2 c-3"
+    },
+    {
+      "input": "iter(a b c,##,-)",
+      "expected": "a b c"
+    },
+    {
+      "input": "iter(a,b,c,d,e)",
+      "expected": "#-1 FUNCTION (ITER) EXPECTS BETWEEN 2 AND 4 ARGUMENTS"
+    },
+    {
+      "input": "iter()",
+      "expected": "#-1 FUNCTION (ITER) EXPECTS BETWEEN 2 AND 4 ARGUMENTS"
+    },
+    {
+      "input": "iter(a)",
+      "expected": "#-1 FUNCTION (ITER) EXPECTS BETWEEN 2 AND 4 ARGUMENTS"
+    },
+    {
+      "input": "##",
+      "expected": "##"
+    },
+    {
+      "input": "#@",
+      "expected": "#@"
+    },
+    {
+      "input": "#!",
+      "expected": "#!"
+    },
+    {
+      "input": "iter(a b c,[iter(x y,##-#@)]-#@)",
+      "expected": "x-1 y-2-1 x-1 y-2-2 x-1 y-2-3"
+    },
+    {
+      "input": "iter(,##)",
+      "expected": ""
+    },
+    {
+      "input": "iter(a b,c)",
+      "expected": "c c"
+    },
+    {
+      "input": "iter(a b c,ifelse(eq(##,b),,##))",
+      "expected": ""
+    },
+    {
+      "input": "iter(a,,b,##)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "iter(a,,,b,##)",
+      "expected": "#-1 FUNCTION (ITER) EXPECTS BETWEEN 2 AND 4 ARGUMENTS"
+    },
+    {
+      "input": "iter(a,,b,##,-)",
+      "expected": "#-1 FUNCTION (ITER) EXPECTS BETWEEN 2 AND 4 ARGUMENTS"
+    },
+    {
+      "input": "iter(a-b,##,-)",
+      "expected": "a b"
+    },
+    {
+      "input": "iter(a--b,##,-)",
+      "expected": "a  b"
+    },
+    {
+      "input": "iter(a  b,##)",
+      "expected": "a b"
+    },
+    {
+      "input": "iter( a b ,##)",
+      "expected": "a b"
+    },
+    {
+      "input": "iter(a b c,##,%b,X)",
+      "expected": "aXbXc"
+    },
+    {
+      "input": "iter(a b c,,,)",
+      "expected": ""
+    },
+    {
+      "input": "iter(a b c,##,,X)",
+      "expected": "aXbXc"
+    },
+    {
+      "input": "iter(a b c,switch(##,b,,##))",
+      "expected": "a  c"
+    },
+    {
+      "input": "iter(a b c,switch(##,b,,##),-)",
+      "expected": "a b c"
+    },
+    {
+      "input": "iter(a b c,switch(##,a,,switch(##,c,,##)))",
+      "expected": "b "
+    },
+    {
+      "input": "S[iter(a b c,switch(##,a,,switch(##,c,,##)))]E",
+      "expected": "Sb E"
+    },
+    {
+      "input": "S[iter(a b c,switch(##,b,,##))]E",
+      "expected": "Sa  cE"
+    },
+    {
+      "input": "S[iter(,X##)]E",
+      "expected": "SE"
+    },
+    {
+      "input": "S[iter(-a-,##,-)]E",
+      "expected": "Sa E"
+    },
+    {
+      "input": "S[iter(a-,##,-)]E",
+      "expected": "Sa E"
+    },
+    {
+      "input": "S[iter(  ,##)]E",
+      "expected": "SE"
+    },
+    {
+      "input": "[setq(0,add)]iter(1,##(2,3))",
+      "expected": "1(2,3)"
+    },
+    {
+      "input": "iter(a b c,[setr(0,%q0##)])%q0",
+      "expected": "a ab abcabc"
+    },
+    {
+      "input": "iter(a b,switch(##,a,,switch(##,b,,##)))",
+      "expected": ""
+    },
+    {
+      "input": "iter(a b c,#@ #!)",
+      "expected": "1 0 2 0 3 0"
+    },
+    {
+      "input": "iter(a b,iter(x y,#@ #!))",
+      "expected": "1 1 2 1 1 1 2 1"
+    },
+    {
+      "input": "iter(add,##(2,3))",
+      "expected": "5"
+    },
+    {
+      "input": "iter(add sub,##(5,3))",
+      "expected": "8 2"
+    }
+  ]
+}
