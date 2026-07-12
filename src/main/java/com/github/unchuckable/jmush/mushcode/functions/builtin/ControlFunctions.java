@@ -112,8 +112,12 @@ public class ControlFunctions {
     return Value.of(result.toString());
   }
 
-  /** Splits on runs of {@code ' '}, trimming leading/trailing spaces first (no regex). */
-  private static String[] splitCompressed(String list) {
+  /**
+   * Splits on runs of {@code ' '}, trimming leading/trailing spaces first (no regex). Package-
+   * visible so {@code StringFunctions}'s {@code words()}/{@code first()} can reuse it (same
+   * underlying C {@code trim_space_sep}/{@code split_token}/{@code next_token} semantics).
+   */
+  static String[] splitCompressed(String list) {
     String trimmed = list.trim();
     int n = trimmed.length();
     if (n == 0) {
@@ -134,8 +138,11 @@ public class ControlFunctions {
     return parts.toArray(new String[0]);
   }
 
-  /** Plain, non-collapsing split on a single literal char (no regex). */
-  private static String[] splitLiteral(String list, char sep) {
+  /**
+   * Plain, non-collapsing split on a single literal char (no regex). Package-visible so {@code
+   * StringFunctions}'s {@code words()}/{@code first()} can reuse it.
+   */
+  static String[] splitLiteral(String list, char sep) {
     if (list.isEmpty()) {
       return new String[0];
     }

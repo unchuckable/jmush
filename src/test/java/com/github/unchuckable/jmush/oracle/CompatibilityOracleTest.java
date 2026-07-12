@@ -111,6 +111,11 @@ public class CompatibilityOracleTest {
     return corpusTests("iter-function.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> wordsFirstRestFunctionsMatchOracle() throws IOException {
+    return corpusTests("words-first-rest-function.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

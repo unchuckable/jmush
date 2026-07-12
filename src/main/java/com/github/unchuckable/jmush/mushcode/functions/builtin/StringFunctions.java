@@ -173,4 +173,122 @@ public class StringFunctions {
     }
     return s.charAt(0);
   }
+
+  /**
+   * {@code words(list[,sep])}. Element count after splitting {@code list} on {@code sep} (default
+   * space, see {@link #parseFillChar}) -- reuses {@link ControlFunctions#splitCompressed}/{@link
+   * ControlFunctions#splitLiteral}, since functions.c's {@code countwords} repeatedly calls {@code
+   * next_token} (same collapse-adjacent-run behavior as {@code split_token}), which ends up fully
+   * collapsing all runs for the default separator, same as {@code iter()}'s list-splitting. Zero
+   * args (not to be confused with an empty {@code list} arg) returns {@code "0"}, oracle-verified.
+   */
+  @MushFunction(name = "words")
+  public static Value words(ExecutionContext ctx, List<Value> args) {
+    checkListSepArity("WORDS", args);
+    if (args.isEmpty()) {
+      return Value.of("0");
+    }
+    String list = args.get(0).asString();
+    char sep = args.size() > 1 ? parseFillChar(args.get(1), ' ') : ' ';
+    String[] elements =
+        sep == ' '
+            ? ControlFunctions.splitCompressed(list)
+            : ControlFunctions.splitLiteral(list, sep);
+    return Value.ofInt(elements.length);
+  }
+
+  /**
+   * {@code first(list[,sep])}. First element after splitting {@code list} on {@code sep} (default
+   * space, see {@link #parseFillChar}) -- since only the first element is kept, this is equivalent
+   * to {@link ControlFunctions#splitCompressed}/{@link ControlFunctions#splitLiteral} element
+   * {@code [0]}. Zero args, or an empty (post-trim, for the default separator) {@code list}, both
+   * return {@code ""}, oracle-verified.
+   */
+  @MushFunction(name = "first")
+  public static Value first(ExecutionContext ctx, List<Value> args) {
+    checkListSepArity("FIRST", args);
+    if (args.isEmpty()) {
+      return Value.of("");
+    }
+    String list = args.get(0).asString();
+    char sep = args.size() > 1 ? parseFillChar(args.get(1), ' ') : ' ';
+    String[] elements =
+        sep == ' '
+            ? ControlFunctions.splitCompressed(list)
+            : ControlFunctions.splitLiteral(list, sep);
+    return Value.of(elements.length == 0 ? "" : elements[0]);
+  }
+
+  /**
+   * {@code rest(list[,sep])}. Everything after the first element of {@code list}, split on {@code
+   * sep} (default space, see {@link #parseFillChar}). Zero args returns {@code ""}.
+   *
+   * <p><b>Not</b> the same as joining {@code splitCompressed(list)[1..]} back together --
+   * functions.c's {@code fun_rest} does a single {@code trim_space_sep} + {@code split_token} call,
+   * not a full list split. {@code trim_space_sep} trims the leading/trailing run once, and {@code
+   * split_token} skips the first token plus *only* the run of separators immediately following it
+   * -- every other interior separator run in the remainder is returned raw, uncollapsed. Ordinary
+   * typed-in multiple spaces never surface this (the general argument evaluator's own space
+   * compression collapses them before {@code rest()} even runs), but backslash-escaped spaces
+   * bypass that and reveal it: {@code rest(a\ \ b\ \ \ c)} -- a two-space run, then a three-space
+   * run -- keeps that trailing three-space run intact in the remainder, unlike the fully-collapsed
+   * single-space result you'd get from ordinary unescaped input (oracle-verified; NOTE: don't
+   * "simplify" the literal multi-space example strings in this comment -- javadoc reflow/spotless
+   * silently collapses embedded whitespace runs in prose, which previously turned this into a
+   * self-contradictory "is X, not X" sentence). For a non-space {@code sep} there's no
+   * pre-compression step at all, so leftover consecutive {@code sep} chars past the first one stay
+   * in the remainder verbatim (e.g. {@code rest(a--b,-)} is {@code "-b"}, not {@code "b"}). See
+   * {@link #splitFirst}.
+   */
+  @MushFunction(name = "rest")
+  public static Value rest(ExecutionContext ctx, List<Value> args) {
+    checkListSepArity("REST", args);
+    if (args.isEmpty()) {
+      return Value.of("");
+    }
+    String list = args.get(0).asString();
+    char sep = args.size() > 1 ? parseFillChar(args.get(1), ' ') : ' ';
+    return Value.of(splitFirst(list, sep)[1]);
+  }
+
+  /**
+   * {@code words}/{@code first}/{@code rest} share an arity shape {@link
+   * com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry}'s generic {@code
+   * minArgs}/{@code maxArgs} check can't express: zero args is a valid sentinel case (handled by
+   * each caller, not here), one or two args is normal, and anything higher is {@code "1 OR 2
+   * ARGUMENTS"} -- not {@code FunctionRegistry}'s {@code "BETWEEN 0 AND 2"}, which is what a {@code
+   * minArgs = 0} annotation would generate (oracle-verified via {@code words(a,b,c)}). So these
+   * three methods take the registry's default (unchecked) arity and validate it here instead.
+   */
+  private static void checkListSepArity(String name, List<Value> args) {
+    if (args.size() > 2) {
+      throw new MushValueException("#-1 FUNCTION (" + name + ") EXPECTS 1 OR 2 ARGUMENTS");
+    }
+  }
+
+  /**
+   * Mirrors functions.c's {@code trim_space_sep} + {@code split_token} pair exactly: trims
+   * leading/trailing separator runs (space separator only -- a no-op for any other {@code sep}),
+   * then splits off just the first element and the separator run immediately following it, leaving
+   * every later interior run in the remainder untouched. Returns a 2-element array: {@code
+   * [firstElement, remainder]}, both {@code ""} for an empty (post-trim) {@code list}.
+   */
+  private static String[] splitFirst(String list, char sep) {
+    String trimmed = sep == ' ' ? list.trim() : list;
+    if (trimmed.isEmpty()) {
+      return new String[] {"", ""};
+    }
+    int cut = trimmed.indexOf(sep);
+    if (cut < 0) {
+      return new String[] {trimmed, ""};
+    }
+    String first = trimmed.substring(0, cut);
+    int remainderStart = cut + 1;
+    if (sep == ' ') {
+      while (remainderStart < trimmed.length() && trimmed.charAt(remainderStart) == ' ') {
+        remainderStart++;
+      }
+    }
+    return new String[] {first, trimmed.substring(remainderStart)};
+  }
 }

@@ -1,0 +1,157 @@
+{
+  "notes": "words(list[,sep])/first(list[,sep])/rest(list[,sep]) -- sep defaults to space, validated the same as trim/ljust/rjust/iter\u0027s fill-char arg. Zero args (true empty parens, not an empty-string arg) special-cases before the normal arg-count check: words() -\u003e 0, first()/rest() -\u003e empty string. words()/first() are full-list-split element count/first-element, same collapse-vs-non-collapse split rule as iter() (default space collapses runs and trims; custom single-char sep does a plain non-collapsing split). rest() is the subtle one: NOT the same as re-joining splitCompressed(list)[1..] -- functions.c\u0027s fun_rest does a single trim_space_sep + split_token call, which trims the leading/trailing run once and collapses only the separator run immediately following the first token, leaving every other interior run in the remainder raw/uncollapsed. That subtlety is invisible for plain typed-in multiple spaces though -- the general argument evaluator\u0027s own space compression (mudconf.space_compress, unrelated to fun_rest\u0027s own logic) already collapses them before rest() ever sees the string, which is why rest(a  b   c) oracle-verifies to \"b c\" same as the fully-collapsed case. Only backslash-escaped spaces (bypassing that pre-compression) reveal the real per-call behavior: rest(a\\ \\ b\\ \\ \\ c) oracle-verifies to \"b   c\" (the later three-space run survives), not \"b c\".",
+  "cases": [
+    {
+      "input": "words(a b c)",
+      "expected": "3"
+    },
+    {
+      "input": "words(a  b   c)",
+      "expected": "3"
+    },
+    {
+      "input": "words( a b c )",
+      "expected": "3"
+    },
+    {
+      "input": "words(a-b-c,-)",
+      "expected": "3"
+    },
+    {
+      "input": "words(a--b,-)",
+      "expected": "3"
+    },
+    {
+      "input": "words()",
+      "expected": "0"
+    },
+    {
+      "input": "words( )",
+      "expected": "0"
+    },
+    {
+      "input": "words(,-)",
+      "expected": "0"
+    },
+    {
+      "input": "first(a b c)",
+      "expected": "a"
+    },
+    {
+      "input": "first(a  b   c)",
+      "expected": "a"
+    },
+    {
+      "input": "first( a b c )",
+      "expected": "a"
+    },
+    {
+      "input": "first(a-b-c,-)",
+      "expected": "a"
+    },
+    {
+      "input": "first()",
+      "expected": ""
+    },
+    {
+      "input": "first(,-)",
+      "expected": ""
+    },
+    {
+      "input": "first(a)",
+      "expected": "a"
+    },
+    {
+      "input": "rest(a b c)",
+      "expected": "b c"
+    },
+    {
+      "input": "rest(a  b   c)",
+      "expected": "b c"
+    },
+    {
+      "input": "rest(a\\ \\ b\\ \\ \\ c)",
+      "expected": "b   c"
+    },
+    {
+      "input": "rest( a b c )",
+      "expected": "b c"
+    },
+    {
+      "input": "rest(a)",
+      "expected": ""
+    },
+    {
+      "input": "rest()",
+      "expected": ""
+    },
+    {
+      "input": "rest(,-)",
+      "expected": ""
+    },
+    {
+      "input": "rest(a-b-c,-)",
+      "expected": "b-c"
+    },
+    {
+      "input": "rest(a--b,-)",
+      "expected": "-b"
+    },
+    {
+      "input": "first(add(1,2) add(3,4))",
+      "expected": "3"
+    },
+    {
+      "input": "rest(add(1,2) add(3,4))",
+      "expected": "add(3,4)"
+    },
+    {
+      "input": "words(add(1,2) add(3,4) add(5,6))",
+      "expected": "3"
+    },
+    {
+      "input": "words(a,b,c)",
+      "expected": "#-1 FUNCTION (WORDS) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "first(a,b,c)",
+      "expected": "#-1 FUNCTION (FIRST) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "rest(a,b,c)",
+      "expected": "#-1 FUNCTION (REST) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "first(a,xy)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "words(a b c,xy)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "rest(a b c,xy)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "words(a b c,.)",
+      "expected": "1"
+    },
+    {
+      "input": "words(a.b.c,.)",
+      "expected": "3"
+    },
+    {
+      "input": "first(a.b.c,.)",
+      "expected": "a"
+    },
+    {
+      "input": "rest(a.b.c,.)",
+      "expected": "b.c"
+    },
+    {
+      "input": "words(a*b*c,*)",
+      "expected": "3"
+    }
+  ]
+}
