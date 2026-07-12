@@ -15,6 +15,14 @@ import java.util.List;
  * Marked {@code lazy = true} so {@link
  * com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry} registers the method as-is,
  * with no eager-evaluation wrapper -- see {@code @MushFunction}'s javadoc.
+ *
+ * <p>Unlike an ordinary eager function's arguments, these bodies' branches never see EV_FMAND at
+ * all -- {@code MushcodeParser.handleFunctionCall} and {@code DynamicFunctionExpression} both
+ * suppress it (via {@code EvalFlags.withFmand(false)}) before parsing/evaluating a {@code lazy}
+ * function's arguments, since real TinyMUSH's {@code switch}/{@code ifelse}/{@code iter} don't
+ * propagate it into their own branches either -- oracle-verified: {@code
+ * [switch(1,1,badname(1),2)]} literal-falls-back to {@code "badname(1)"} even directly inside
+ * {@code [...]}, it never hard-errors. See {@code FunctionEntry}'s javadoc.
  */
 public class ControlFunctions {
 

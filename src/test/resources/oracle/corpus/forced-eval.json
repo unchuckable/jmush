@@ -1,4 +1,5 @@
 {
+  "notes": "EV_FMAND ([...] forced-eval turning a failed function-name match into a hard \u0027#-1 FUNCTION (name) NOT FOUND\u0027 error instead of a literal fallback) localizes to the smallest enclosing argument/catenated-argument boundary, not the whole containing [...] block: [cat(add(1,2),badname(3))] keeps add(1,2)\u0027s \u00273 \u0027 and cat()\u0027s join with the second argument despite badname(3) failing, and [lcstr(HELLO,add(1,2))extra] keeps the outer \u0027extra\u0027 -- lcstr() legitimately receives the (uppercase) error text as its own argument and lowercases it, which is why that one case\u0027s message looks lowercase (no special-casing of the message itself is needed). A bare/top-level failure (nothing else in that [...] block\u0027s own scan, e.g. [badname(1)]) or a failure that\u0027s the sole content of a nested [...] block (e.g. [stuff1 [%q0(1,2)] stuff2]) still collapses to just the error for that whole block, since there\u0027s no sibling content at that scan level to preserve.",
   "cases": [
     {
       "input": "[%#]",
@@ -11,6 +12,50 @@
     {
       "input": "[%n]",
       "expected": "Wizard"
+    },
+    {
+      "input": "[badname(1)]",
+      "expected": "#-1 FUNCTION (badname) NOT FOUND"
+    },
+    {
+      "input": "[stuff1 [%q0(1,2)] stuff2]",
+      "expected": "stuff1 #-1 FUNCTION () NOT FOUND stuff2"
+    },
+    {
+      "input": "[cat(add(1,2),badname(3))]",
+      "expected": "3 #-1 FUNCTION (badname) NOT FOUND"
+    },
+    {
+      "input": "[cat(badname(1),add(2,3))]",
+      "expected": "#-1 FUNCTION (badname) NOT FOUND 5"
+    },
+    {
+      "input": "[stuff1 cat(x,badname(1)) stuff2]",
+      "expected": "#-1 FUNCTION (stuff1 cat) NOT FOUND"
+    },
+    {
+      "input": "[lcstr(HELLO,add(1,2))extra]",
+      "expected": "#-1 function (hello,add) not foundextra"
+    },
+    {
+      "input": "[setq(0,badname)][cat(%q0(1),2)]",
+      "expected": "#-1 FUNCTION (badname) NOT FOUND 2"
+    },
+    {
+      "input": "[setq(0,badname)][cat(a b%q0(1)c,2)]",
+      "expected": "#-1 FUNCTION (a bbadname) NOT FOUND 2"
+    },
+    {
+      "input": "[cat(add(1,2),3)]",
+      "expected": "3 3"
+    },
+    {
+      "input": "[rest(hello,badname(1))]",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "[cat(cat(a,badname(1)),2)]",
+      "expected": "a #-1 FUNCTION (badname) NOT FOUND 2"
     }
   ]
 }

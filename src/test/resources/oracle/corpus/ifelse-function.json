@@ -48,6 +48,10 @@
     {
       "input": "ifelse(1,2,3,4)",
       "expected": "#-1 FUNCTION (IFELSE) EXPECTS 3 ARGUMENTS"
+    },
+    {
+      "input": "[ifelse(1,badname(1),2)stuff2]",
+      "expected": "badname(1)stuff2"
     }
   ]
 }

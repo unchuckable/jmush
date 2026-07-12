@@ -1,5 +1,6 @@
 package com.github.unchuckable.jmush.mushcode;
 
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -239,7 +240,7 @@ public class Value implements Expression {
       return value < 0 ? "-Inf" : "Inf";
     }
 
-    String formatted = String.format("%.6f", value);
+    String formatted = String.format(Locale.ROOT, "%.6f", value);
     if (formatted.charAt(formatted.length() - 1) == '0') {
       int end = formatted.length();
       while (end > 0 && formatted.charAt(end - 1) == '0') {

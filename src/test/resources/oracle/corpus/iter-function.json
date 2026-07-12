@@ -156,6 +156,10 @@
     {
       "input": "iter(add sub,##(5,3))",
       "expected": "8 2"
+    },
+    {
+      "input": "[iter(a b,badname(##))stuff2]",
+      "expected": "badname(a) badname(b)stuff2"
     }
   ]
 }

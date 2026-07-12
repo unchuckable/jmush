@@ -7,6 +7,7 @@ import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunction;
 import com.github.unchuckable.jmush.util.WildcardMatcher;
 import java.util.List;
+import java.util.Locale;
 
 public class StringFunctions {
 
@@ -39,16 +40,22 @@ public class StringFunctions {
    * add(1,2)}'s own {@code (} never gets a function-check chance, since the one-shot check was
    * already burned on the failed {@code "a,add"} name candidate), not {@code "a,3"} -- while {@code
    * lcstr(add(1,2))} (no comma) evaluates normally to {@code "3"}.
+   *
+   * <p>Uses {@link Locale#ROOT} so behavior doesn't vary with the JVM's default locale (e.g.
+   * Turkish {@code tr} would otherwise map {@code I}/{@code i} unexpectedly). This is deliberately
+   * *not* the same question as whether case-folding should be ASCII-only to match the C reference
+   * exactly (e.g. {@code Locale.ROOT} still folds {@code ß} to {@code SS}, changing string length)
+   * -- that's an open oracle-verification item, tracked separately, not addressed here.
    */
   @MushFunction(name = "lcstr", catenateArgs = true)
   public static Value lcstr(ExecutionContext ctx, Value str) {
-    return Value.of(str.asString().toLowerCase());
+    return Value.of(str.asString().toLowerCase(Locale.ROOT));
   }
 
   /** {@code ucstr(str)} -- like {@link #lcstr}, but uppercases. */
   @MushFunction(name = "ucstr", catenateArgs = true)
   public static Value ucstr(ExecutionContext ctx, Value str) {
-    return Value.of(str.asString().toUpperCase());
+    return Value.of(str.asString().toUpperCase(Locale.ROOT));
   }
 
   /**

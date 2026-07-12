@@ -1,5 +1,5 @@
 {
-  "notes": "switch(subject, pattern1, branch1[, pattern2, branch2, ...][, default]) -- patterns are wildcard-matched (*/?) against subject, case-insensitively; only the matching branch (or default) is evaluated, never the losing branches (verified via setq() side effects below). Fewer than 2 arguments returns \"\", not an error.",
+  "notes": "switch(subject, pattern1, branch1[, pattern2, branch2, ...][, default]) -- patterns are wildcard-matched (*/?) against subject, case-insensitively; only the matching branch (or default) is evaluated, never the losing branches (verified via setq() side effects below). Fewer than 2 arguments returns \"\", not an error. EV_FMAND does NOT propagate into switch()\u0027s own arguments even directly inside [...] forced-eval -- oracle-verified [switch(1,1,badname(1),2)] literal-falls-back to \"badname(1)\", it never hard-errors, unlike an ordinary eager function\u0027s arguments (see forced-eval.json); same for the dynamic-name path once the resolved name turns out to be switch().",
   "cases": [
     {
       "input": "switch(1,1,yes,no)",
@@ -48,6 +48,14 @@
     {
       "input": "switch(9,2,[setq(0,two)]t,1,[setq(0,one)]o,[setq(0,def)]d)%q0",
       "expected": "ddef"
+    },
+    {
+      "input": "[switch(1,1,badname(1),2)stuff2]",
+      "expected": "badname(1)stuff2"
+    },
+    {
+      "input": "[setq(0,switch)][%q0(1,1,badname(1),2)stuff2]",
+      "expected": "badname(1)stuff2"
     }
   ]
 }

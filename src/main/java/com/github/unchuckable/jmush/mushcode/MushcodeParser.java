@@ -8,6 +8,7 @@ import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.LoopDepthExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.LoopIndexExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.LoopTokenExpression;
+import com.github.unchuckable.jmush.mushcode.expressions.MandatoryMatchExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
@@ -38,12 +39,30 @@ public class MushcodeParser {
     int currentIndex = startIndex;
     int nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);
     while (nextIndex != -1) {
-      parameters.add(parse(string.substring(currentIndex, nextIndex), flags));
+      parameters.add(parseArgument(string, currentIndex, nextIndex, flags));
       currentIndex = nextIndex + 1;
       nextIndex = StringUtils.findIndexOf(',', string, currentIndex, endIndex);
     }
-    parameters.add(parse(string.substring(currentIndex, endIndex), flags));
+    parameters.add(parseArgument(string, currentIndex, endIndex, flags));
     return parameters;
+  }
+
+  /**
+   * Parses one function-call argument (or the catenated single-argument span), localizing a {@link
+   * MandatoryMatchException} (an EV_FMAND name-resolution failure inside {@code [...]}) to just
+   * this argument's {@link Value} instead of letting it unwind past sibling arguments and the whole
+   * containing {@code [...]} block -- oracle-verified: {@code [cat(add(1,2),badname(3))]} evaluates
+   * to {@code "3 #-1 FUNCTION (BADNAME) NOT FOUND"} (add(1,2)'s result and cat()'s join survive),
+   * not a whole-block failure. This is the parse-time half of that scoping; {@link
+   * com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry}'s argument evaluation is the
+   * eval-time half (for dynamically-resolved names, which can only fail at evaluation time).
+   */
+  private Expression parseArgument(String string, int startIndex, int endIndex, EvalFlags flags) {
+    try {
+      return parse(string.substring(startIndex, endIndex), flags);
+    } catch (MandatoryMatchException e) {
+      return Value.of(e.getMessage());
+    }
   }
 
   /**
@@ -202,8 +221,18 @@ public class MushcodeParser {
         return;
       }
       flushBuilder();
-      EvalFlags innerFlags = flags.withFunctionCheck(true);
-      finishedExpressions.add(parse(string.substring(index + 1, endIndex), innerFlags));
+      EvalFlags innerFlags = flags.withFunctionCheck(true).withFmand(true);
+      Expression inner;
+      try {
+        inner = parse(string.substring(index + 1, endIndex), innerFlags);
+      } catch (MandatoryMatchException e) {
+        // A statically-named call failed to resolve -- resolved eagerly here, at parse time,
+        // discarding the rest of this [...] block's text (matches eval.c's alldone = 1).
+        inner = Value.of(e.getMessage());
+      }
+      // Guards against a *dynamically*-named call inside failing later, at evaluation time --
+      // see MandatoryMatchExpression's javadoc.
+      finishedExpressions.add(new MandatoryMatchExpression(inner));
       index = endIndex;
     }
 
@@ -243,17 +272,34 @@ public class MushcodeParser {
         String name = nameBuilder.toString();
         FunctionRegistry.FunctionEntry entry = functionRegistry.lookup(name);
         if (entry == null) {
+          // EV_FMAND ([...] forced-eval): a failed match is a hard error, not a literal
+          // fallback -- thrown here since static names resolve at parse time. Caught either by
+          // parseArgument (localizing to just the enclosing argument, if this call is inside
+          // one -- oracle-verified [cat(add(1,2),badname(3))] keeps "3 " despite badname(3)
+          // failing) or, if this is the [...] block's own top-level scan, by handleForcedEval.
+          if (flags.isFmandEnabled()) {
+            throw MandatoryMatchException.functionNotFound(name);
+          }
           builder.append('(');
           functionCheckAvailable = false;
           return;
         }
+        // FN_NO_EVAL (lazy, e.g. switch()/ifelse()/iter()) functions don't inherit EV_FMAND into
+        // their own arguments -- oracle-verified [switch(1,1,badname(1),2)] literal-falls-back to
+        // "badname(1)" even directly inside [...], it never hard-errors -- unlike an ordinary eager
+        // function's arguments (see MandatoryMatchException's javadoc). These functions decide for
+        // themselves, per call, whether/when to evaluate each argument, so there's no single point
+        // here to *localize* a failure the way parseArgument does for eager functions -- fmand must
+        // just be off for them entirely.
+        EvalFlags argumentFlags = entry.lazy() ? flags.withFmand(false) : flags;
         // catenateArgs functions (functions.c's negative-nargs, e.g. lcstr()/strlen()) don't
         // comma-split their sole argument at all -- the whole span is one expression, commas
         // included as literal text. See @MushFunction#catenateArgs's javadoc.
         List<Expression> parameters =
             entry.catenateArgs()
-                ? Collections.singletonList(parse(string.substring(index + 1, endIndex), flags))
-                : getParameters(string, index + 1, endIndex, flags);
+                ? Collections.singletonList(
+                    parseArgument(string, index + 1, endIndex, argumentFlags))
+                : getParameters(string, index + 1, endIndex, argumentFlags);
         builder.setLength(0);
         finishedExpressions.add(new FunctionExpression(entry.handler(), parameters));
       } else {

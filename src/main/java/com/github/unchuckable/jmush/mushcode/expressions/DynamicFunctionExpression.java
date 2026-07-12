@@ -3,6 +3,7 @@ package com.github.unchuckable.jmush.mushcode.expressions;
 import com.github.unchuckable.jmush.mushcode.EvalFlags;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
+import com.github.unchuckable.jmush.mushcode.MandatoryMatchException;
 import com.github.unchuckable.jmush.mushcode.MushcodeParser;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
@@ -66,11 +67,47 @@ public class DynamicFunctionExpression implements Expression {
     String name = nameExpression.evaluateExpression(context).asString();
     FunctionRegistry.FunctionEntry entry = functionRegistry.lookup(name);
     if (entry != null) {
-      List<Expression> resolvedArguments =
-          entry.catenateArgs()
-              ? Collections.singletonList(parser.parse(rawArguments, flags))
-              : arguments;
+      // FN_NO_EVAL (lazy) functions don't inherit EV_FMAND into their own arguments -- see
+      // FunctionEntry's javadoc -- but that's only knowable once the name resolves, here, at
+      // evaluation time; MushcodeParser.handleFunctionCall applies the same suppression at parse
+      // time, but only for a *statically*-named call, since it knows the resolved entry already.
+      EvalFlags argumentFlags = entry.lazy() ? flags.withFmand(false) : flags;
+      List<Expression> resolvedArguments;
+      if (entry.catenateArgs()) {
+        // Localizes a MandatoryMatchException from this re-parse to just this (sole) argument,
+        // matching MushcodeParser.parseArgument's parse-time equivalent -- e.g. once %q0 resolves
+        // to "lcstr", a failure inside its catenated argument becomes that argument's error Value,
+        // and lcstr() runs normally on it (which is why the result ends up lowercased).
+        Expression catenated;
+        try {
+          catenated = parser.parse(rawArguments, argumentFlags);
+        } catch (MandatoryMatchException e) {
+          catenated = Value.of(e.getMessage());
+        }
+        resolvedArguments = Collections.singletonList(catenated);
+      } else if (entry.lazy()) {
+        // The pre-split arguments field was parsed at parse time under the *ambient* flags, before
+        // this name was known to resolve to a lazy function -- e.g. a static name-resolution
+        // failure inside one of switch()'s own branches would already have been converted to a
+        // hard-error Value under fmand=true, which real TinyMUSH never does here. Re-parse from
+        // the raw span with fmand off to get this right (oracle-verified:
+        // [setq(0,switch)][%q0(1,1,badname(1),2)] literal-falls-back to "badname(1)").
+        resolvedArguments =
+            parser.getParameters(rawArguments, 0, rawArguments.length(), argumentFlags);
+      } else {
+        resolvedArguments = arguments;
+      }
       return entry.handler().execute(context, resolvedArguments);
+    }
+
+    // EV_FMAND ([...] forced-eval): a failed match is a hard error, not a literal fallback --
+    // thrown here since dynamic names only resolve at evaluation time. Caught either by
+    // FunctionRegistry's argument evaluation (localizing to just the enclosing argument, if this
+    // call is itself one -- oracle-verified [setq(0,badname)][cat(%q0(1),2)] keeps " 2" despite
+    // %q0(1) failing) or, if this is the [...] block's own top-level scan, by
+    // MandatoryMatchExpression.
+    if (flags.isFmandEnabled()) {
+      throw MandatoryMatchException.functionNotFound(name);
     }
 
     StringBuilder fallback = new StringBuilder(name).append('(');

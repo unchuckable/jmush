@@ -2,6 +2,7 @@ package com.github.unchuckable.jmush.mushcode.functions;
 
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
+import com.github.unchuckable.jmush.mushcode.MandatoryMatchException;
 import com.github.unchuckable.jmush.mushcode.MushValueException;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.builtin.ControlFunctions;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -66,14 +68,18 @@ public class FunctionRegistry {
   }
 
   /**
-   * A resolved function's handler bundled with its per-function flags -- currently just {@code
-   * catenateArgs} (mirroring {@code functions.c}'s negative-{@code nargs} functions: the sole
-   * argument shouldn't be comma-split at all). Both {@code MushcodeParser.handleFunctionCall} and
-   * {@code DynamicFunctionExpression} need the flag alongside the handler at the same lookup, so
-   * bundling them here means one map lookup resolves both, rather than two separate lookups for the
-   * same name.
+   * A resolved function's handler bundled with its per-function flags: {@code catenateArgs}
+   * (mirroring {@code functions.c}'s negative-{@code nargs} functions: the sole argument shouldn't
+   * be comma-split at all) and {@code lazy} (functions.c's {@code FN_NO_EVAL}: the function
+   * controls its own argument evaluation -- {@code switch}/{@code ifelse}/{@code iter} -- and,
+   * oracle-verified, does *not* inherit EV_FMAND into its arguments the way an ordinary eager
+   * function does: {@code [switch(1,1,badname(1),2)]} literal-falls-back to {@code "badname(1)"}
+   * even directly inside {@code [...]}, it never hard-errors). Both {@code
+   * MushcodeParser.handleFunctionCall} and {@code DynamicFunctionExpression} need these flags
+   * alongside the handler at the same lookup, so bundling them here means one map lookup resolves
+   * both, rather than two separate lookups for the same name.
    */
-  public record FunctionEntry(MushFunctionHandler handler, boolean catenateArgs) {}
+  public record FunctionEntry(MushFunctionHandler handler, boolean catenateArgs, boolean lazy) {}
 
   private final Map<String, FunctionEntry> functions;
 
@@ -84,13 +90,13 @@ public class FunctionRegistry {
   /**
    * Wraps an arbitrary, already-built {@code name -> MushFunctionHandler} map directly, bypassing
    * the {@code @MushFunction} reflection pipeline entirely -- for tests that want to inject a stub
-   * handler without a real provider class. No name catenates under this constructor, since there's
-   * no annotation to read {@code catenateArgs} from.
+   * handler without a real provider class. No name catenates or is lazy under this constructor,
+   * since there's no annotation to read those flags from.
    */
   public static FunctionRegistry of(Map<String, MushFunctionHandler> handlers) {
     Map<String, FunctionEntry> functions = new HashMap<>();
     for (Map.Entry<String, MushFunctionHandler> entry : handlers.entrySet()) {
-      functions.put(entry.getKey(), new FunctionEntry(entry.getValue(), false));
+      functions.put(entry.getKey(), new FunctionEntry(entry.getValue(), false, false));
     }
     return new FunctionRegistry(functions);
   }
@@ -104,9 +110,10 @@ public class FunctionRegistry {
         if (annotation == null) {
           continue;
         }
-        String name = annotation.name().toLowerCase();
+        String name = annotation.name().toLowerCase(Locale.ROOT);
         MushFunctionHandler handler = buildHandler(lookup, method, annotation);
-        registry.put(name, new FunctionEntry(handler, annotation.catenateArgs()));
+        registry.put(
+            name, new FunctionEntry(handler, annotation.catenateArgs(), annotation.lazy()));
       }
     }
     return new FunctionRegistry(registry);
@@ -114,7 +121,7 @@ public class FunctionRegistry {
 
   /** Returns {@code null} if {@code name} doesn't resolve to a known function. */
   public FunctionEntry lookup(String name) {
-    return functions.get(name.toLowerCase());
+    return functions.get(name.toLowerCase(Locale.ROOT));
   }
 
   private static MushFunctionHandler buildHandler(
@@ -171,7 +178,7 @@ public class FunctionRegistry {
       if (args.size() < minArgs || args.size() > maxArgs) {
         return Value.of(
             "#-1 FUNCTION ("
-                + name.toUpperCase()
+                + name.toUpperCase(Locale.ROOT)
                 + ") EXPECTS "
                 + expectedArgsDescription(minArgs, maxArgs)
                 + " ARGUMENTS");
@@ -187,9 +194,26 @@ public class FunctionRegistry {
   private static List<Value> evaluateAll(List<Expression> parameters, ExecutionContext context) {
     List<Value> values = new ArrayList<>(parameters.size());
     for (Expression parameter : parameters) {
-      values.add(parameter.evaluateExpression(context));
+      values.add(evaluateArgument(parameter, context));
     }
     return values;
+  }
+
+  /**
+   * Evaluates one function-call argument, localizing a {@link MandatoryMatchException} (an EV_FMAND
+   * name-resolution failure inside {@code [...]}) to just this argument's {@link Value} instead of
+   * letting it unwind past sibling arguments -- the eval-time half of the scoping {@code
+   * MushcodeParser.parseArgument} implements at parse time (needed here too since a
+   * dynamically-resolved name, e.g. {@code %q0(1)}, can only fail at evaluation time). Used by both
+   * {@link #evaluateAll} and {@link #adaptFixedArity}, the two places an eager (non-{@code lazy})
+   * function's arguments get evaluated.
+   */
+  private static Value evaluateArgument(Expression expression, ExecutionContext context) {
+    try {
+      return expression.evaluateExpression(context);
+    } catch (MandatoryMatchException e) {
+      return Value.of(e.getMessage());
+    }
   }
 
   private static boolean allTrailingParamsAreValue(Class<?>[] paramTypes) {
@@ -238,7 +262,7 @@ public class FunctionRegistry {
                   MushFunction1.class,
                   "apply",
                   MethodType.methodType(Value.class, ExecutionContext.class, Value.class));
-          return (ctx, args) -> fn.apply(ctx, args.get(0).evaluateExpression(ctx));
+          return (ctx, args) -> fn.apply(ctx, evaluateArgument(args.get(0), ctx));
         }
       case 2:
         {
@@ -251,8 +275,7 @@ public class FunctionRegistry {
                   MethodType.methodType(
                       Value.class, ExecutionContext.class, Value.class, Value.class));
           return (ctx, args) ->
-              fn.apply(
-                  ctx, args.get(0).evaluateExpression(ctx), args.get(1).evaluateExpression(ctx));
+              fn.apply(ctx, evaluateArgument(args.get(0), ctx), evaluateArgument(args.get(1), ctx));
         }
       case 3:
         {
@@ -267,9 +290,9 @@ public class FunctionRegistry {
           return (ctx, args) ->
               fn.apply(
                   ctx,
-                  args.get(0).evaluateExpression(ctx),
-                  args.get(1).evaluateExpression(ctx),
-                  args.get(2).evaluateExpression(ctx));
+                  evaluateArgument(args.get(0), ctx),
+                  evaluateArgument(args.get(1), ctx),
+                  evaluateArgument(args.get(2), ctx));
         }
       default:
         throw new IllegalArgumentException(
