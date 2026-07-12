@@ -1,5 +1,5 @@
 {
-  "notes": "Adversarial probes found by deliberately trying to break the parser/functions once side-effect functions (setq/setr) made evaluation order observable. Two real bugs found and fixed here: (1) EV_FCHECK is one-shot per scan -- only the first unescaped \u0027(\u0027 is ever eligible for function-call recognition, match or not; every subsequent \u0027(\u0027 at that scan level is permanently literal until a fresh [...]/{...}/argument scan (see MushcodeParser\u0027s functionCheckAvailable). (2) Value.aton() didn\u0027t recognize C99 strtod\u0027s NaN/Infinity/hex-float literal forms. Substitution/name-boundary and side-effect-ordering probes are also included since they were part of the same investigation, even though they didn\u0027t turn up bugs.",
+  "notes": "Adversarial probes found by deliberately trying to break the parser/functions once side-effect functions (setq/setr) made evaluation order observable. Three real bugs found and fixed here: (1) EV_FCHECK is one-shot per scan -- only the first unescaped \u0027(\u0027 is ever eligible for function-call recognition, match or not; every subsequent \u0027(\u0027 at that scan level is permanently literal until a fresh [...]/{...}/argument scan (see MushcodeParser\u0027s functionCheckAvailable). (2) Value.aton() didn\u0027t recognize C99 strtod\u0027s NaN/Infinity/hex-float literal forms. (3) MushcodeParser.ParseRun.finish()\u0027s trailing-space deletion used the lastWasSpace flag, which handleEscape() never sets true, so a backslash-escaped trailing space (e.g. cat(a\\ \\ \\ ,b)) was fully preserved instead of losing exactly one space like real TinyMUSH does (eval.c\u0027s parse_to_cleanup peeks at the raw last-written buffer character, blind to whether it arrived via an escape). Fixed by checking builder\u0027s actual last character instead of the flag; the escape-aware lastWasSpace flag itself is untouched and still correctly protects escaped spaces from interior/leading compression. Substitution/name-boundary and side-effect-ordering probes are also included since they were part of the same investigation, even though they didn\u0027t turn up bugs.",
   "cases": [
     {
       "input": "add(1,2)add(3,4)",
@@ -140,6 +140,22 @@
     {
       "input": "cat(a%q(b,c)",
       "expected": "cat(ab,c)"
+    },
+    {
+      "input": "cat(a\\ ,b)",
+      "expected": "a b"
+    },
+    {
+      "input": "cat(a\\ \\ ,b)",
+      "expected": "a  b"
+    },
+    {
+      "input": "cat(a\\ \\ \\ ,b)",
+      "expected": "a   b"
+    },
+    {
+      "input": "cat(a\\ \\ \\ zz,b)",
+      "expected": "a   zz b"
     }
   ]
 }

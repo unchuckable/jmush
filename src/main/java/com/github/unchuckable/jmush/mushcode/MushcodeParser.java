@@ -91,6 +91,21 @@ public class MushcodeParser {
      */
     private boolean lastWasSpace = true;
 
+    /**
+     * Tracks specifically "the last char appended was a backslash-escaped space" -- separate from
+     * {@code lastWasSpace}, which must stay {@code false} for an escaped space so interior/leading
+     * compression keeps treating it as non-compressible (oracle-verified, e.g. {@code rest(a\ \ b\
+     * \ \ c)}). Needed only so {@link #finish} can replicate eval.c's {@code parse_to_cleanup}
+     * trailing-deletion quirk precisely: that check runs on raw, not-yet-%- substituted source
+     * text, so it sees a literal space for a resolved {@code \ } escape but *not* for a {@code %b}
+     * substitution (also a literal, non-compressible space, but one that doesn't exist in the
+     * source text at that point) -- oracle-verified {@code trim(%b%bhello%b%b,l)} keeps both
+     * trailing {@code %b} spaces, while {@code cat(a\ ,b)} loses its one escaped space. Reset to
+     * {@code false} by every branch except {@link #handleEscape}, which sets it based on whether
+     * the escaped char was itself a space.
+     */
+    private boolean lastWasEscapedSpace = false;
+
     private int index = 0;
 
     private ParseRun(String string, EvalFlags flags) {
@@ -104,6 +119,7 @@ public class MushcodeParser {
         char thisChar = string.charAt(index);
 
         if (thisChar == ' ') {
+          lastWasEscapedSpace = false;
           if (flags.isSpaceCompressionEnabled() && lastWasSpace) {
             index++;
             continue;
@@ -114,6 +130,7 @@ public class MushcodeParser {
           continue;
         }
         lastWasSpace = false;
+        lastWasEscapedSpace = false;
 
         switch (thisChar) {
           case '\\':
@@ -146,7 +163,9 @@ public class MushcodeParser {
     private void handleEscape() {
       index++;
       if (index < string.length()) {
-        builder.append(string.charAt(index));
+        char escaped = string.charAt(index);
+        builder.append(escaped);
+        lastWasEscapedSpace = escaped == ' ';
       }
     }
 
@@ -345,8 +364,15 @@ public class MushcodeParser {
 
     private Expression finish() {
       // eval.c:1123-1131 -- if the string ended on a space eligible for compression, that
-      // trailing space is deleted entirely (not merely compressed to one).
-      if (flags.isSpaceCompressionEnabled() && lastWasSpace && builder.length() > 0) {
+      // trailing space is deleted entirely (not merely compressed to one). Also fires for a
+      // trailing backslash-escaped space (lastWasEscapedSpace), matching eval.c's parse_to_cleanup
+      // -- oracle-verified cat(a\ \ \ ,b) loses exactly one of the three escaped spaces -- but NOT
+      // for a %b-produced trailing space, which stays escape-protected the same way an escaped
+      // space is protected from interior compression (oracle-verified trim(%b%bhello%b%b,l) keeps
+      // both trailing %b spaces). See lastWasEscapedSpace's javadoc for why these differ.
+      if (flags.isSpaceCompressionEnabled()
+          && (lastWasSpace || lastWasEscapedSpace)
+          && builder.length() > 0) {
         builder.setLength(builder.length() - 1);
       }
 
