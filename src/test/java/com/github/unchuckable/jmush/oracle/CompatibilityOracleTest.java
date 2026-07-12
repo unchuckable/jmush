@@ -121,6 +121,11 @@ public class CompatibilityOracleTest {
     return corpusTests("match-extract-function.json");
   }
 
+  @TestFactory
+  Stream<DynamicTest> beforeAfterIndexFunctionsMatchOracle() throws IOException {
+    return corpusTests("before-after-index-function.json");
+  }
+
   private Stream<DynamicTest> corpusTests(String resourceName) throws IOException {
     OracleCorpus.File corpus = OracleCorpus.loadFromClasspath(resourceName);
     return corpus.cases.stream()

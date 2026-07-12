@@ -1,0 +1,145 @@
+{
+  "notes": "before(str[,sep])/after(str[,sep]): sep is an arbitrary-length literal substring (not a single char, not a wildcard), defaulting to a single space if omitted or empty. Zero args -\u003e empty string (same nfargs\u003d\u003d0 sentinel pattern as words/first/rest); 1-2 args normal; 3+ errors 1 OR 2 ARGUMENTS. Only if sep ends up exactly a single space does str get leading/trailing-trimmed first; otherwise no trim at all. Plain literal substring search (String.indexOf(String) matches the C source\u0027s char-scan+strncmp exactly). index(list,sep,first,len): always exactly 4 args. sep\u0027s first character is used as-is with NO length validation (multi-char sep is not an error, silently uses the first char; empty sep defaults to space) -- unlike every other separator-taking function here. Positions into the ORIGINAL untrimmed list -- walking to the start of element `first` uses raw indexOf occurrences (no compression, even for space sep), but the resulting offset then gets an UNCONDITIONAL literal-space skip regardless of what sep is. Walking `len` more occurrences to find the end boundary is the same raw walk; if all len are found, trailing spaces before that cut point are also stripped -- but if the walk runs off the end first, the result is the raw untrimmed remainder to the end of the string (asymmetric with the success case, confirmed by the C source\u0027s control flow).",
+  "cases": [
+    {
+      "input": "before(a-b-c,-)",
+      "expected": "a"
+    },
+    {
+      "input": "after(a-b-c,-)",
+      "expected": "b-c"
+    },
+    {
+      "input": "before(hello world,wor)",
+      "expected": "hello "
+    },
+    {
+      "input": "after(hello world,wor)",
+      "expected": "ld"
+    },
+    {
+      "input": "before(a b c)",
+      "expected": "a"
+    },
+    {
+      "input": "before(  a b c  )",
+      "expected": "a"
+    },
+    {
+      "input": "before(a,x)",
+      "expected": "a"
+    },
+    {
+      "input": "after(a,x)",
+      "expected": ""
+    },
+    {
+      "input": "before()",
+      "expected": ""
+    },
+    {
+      "input": "after()",
+      "expected": ""
+    },
+    {
+      "input": "before(a)",
+      "expected": "a"
+    },
+    {
+      "input": "after(a)",
+      "expected": ""
+    },
+    {
+      "input": "before(a,b,c)",
+      "expected": "#-1 FUNCTION (BEFORE) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "after(a,b,c)",
+      "expected": "#-1 FUNCTION (AFTER) EXPECTS 1 OR 2 ARGUMENTS"
+    },
+    {
+      "input": "before(a,)",
+      "expected": "a"
+    },
+    {
+      "input": "after(a,)",
+      "expected": ""
+    },
+    {
+      "input": "before(add(1,2) add(3,4),add(3,4))",
+      "expected": "3 add(3,4)"
+    },
+    {
+      "input": "after(add(1,2) add(3,4),add(1,2))",
+      "expected": " add(3,4)"
+    },
+    {
+      "input": "index(a b | c d e | f gh | ij k,|,2,1)",
+      "expected": "c d e"
+    },
+    {
+      "input": "index(a b | c d e | f gh | ij k,|,2,2)",
+      "expected": "c d e | f gh"
+    },
+    {
+      "input": "index(a b | c d e | f gh | ij k,|,1,1)",
+      "expected": "a b"
+    },
+    {
+      "input": "index(a|b|c,xy,1,1)",
+      "expected": "a|b|c"
+    },
+    {
+      "input": "index(a|b|c,,1,1)",
+      "expected": "a|b|c"
+    },
+    {
+      "input": "index(a\\ \\ \\ |b,|,1,1)",
+      "expected": "a"
+    },
+    {
+      "input": "index(a|\\ \\ \\ b,|,2,1)",
+      "expected": "b"
+    },
+    {
+      "input": "index(ab|c\\ \\ \\ zz,|,1,5)",
+      "expected": "ab|c   zz"
+    },
+    {
+      "input": "index(ab|c\\ \\ \\ zz,|,2,1)",
+      "expected": "c   zz"
+    },
+    {
+      "input": "index(a b c,|,1,1)",
+      "expected": "a b c"
+    },
+    {
+      "input": "index(,|,1,1)",
+      "expected": ""
+    },
+    {
+      "input": "index(a|b|c,|,5,1)",
+      "expected": ""
+    },
+    {
+      "input": "index(a|b|c,|,1,0)",
+      "expected": ""
+    },
+    {
+      "input": "index(a|b|c,|,0,1)",
+      "expected": ""
+    },
+    {
+      "input": "index(a,b,c)",
+      "expected": "#-1 FUNCTION (INDEX) EXPECTS 4 ARGUMENTS"
+    },
+    {
+      "input": "index()",
+      "expected": "#-1 FUNCTION (INDEX) EXPECTS 4 ARGUMENTS"
+    },
+    {
+      "input": "index(a,b,c,d,e)",
+      "expected": "#-1 FUNCTION (INDEX) EXPECTS 4 ARGUMENTS"
+    }
+  ]
+}

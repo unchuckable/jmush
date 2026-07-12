@@ -414,4 +414,149 @@ public class StringFunctions {
     }
     return next;
   }
+
+  /**
+   * {@code before(str[, sep])} / {@code after(str[, sep])}. {@code sep} is an arbitrary-length
+   * literal substring (not a single char, not a wildcard), defaulting to {@code " "} if omitted or
+   * empty. Zero args returns {@code ""} (oracle-verified, same {@code nfargs == 0} pattern as
+   * {@link #words}/{@link #first}/{@link #rest}); see {@link #checkSubstringArity} for the 1-2 arg
+   * range and its exact error wording. <b>Only</b> if {@code sep} ends up exactly a single space
+   * does {@code str} get leading/trailing-trimmed first ({@code trim_space_sep(str,' ')}, i.e.
+   * plain {@link String#trim}) -- oracle-verified {@code before(hello world,wor)} is {@code "hello
+   * "} (untrimmed, {@code sep} isn't a space) vs {@code before( a b c )} is {@code "a"} (trimmed
+   * first, default {@code sep} is a space). The search itself is a plain literal substring find --
+   * {@code String.indexOf(String)} is exactly equivalent to functions.c's char-by-char {@code
+   * index()} + {@code strncmp} scan, no need to hand-roll it. {@code before()} returns everything
+   * up to (not including) the match, or the whole (possibly-trimmed) string if there's no match;
+   * {@code after()} returns everything after the match, or {@code ""} if there's no match.
+   */
+  @MushFunction(name = "before")
+  public static Value before(ExecutionContext ctx, List<Value> args) {
+    checkSubstringArity("BEFORE", args);
+    if (args.isEmpty()) {
+      return Value.of("");
+    }
+    String bp = args.get(0).asString();
+    String mp = args.size() > 1 ? args.get(1).asString() : "";
+    if (mp.isEmpty()) {
+      mp = " ";
+    }
+    if (mp.equals(" ")) {
+      bp = bp.trim();
+    }
+    int idx = bp.indexOf(mp);
+    return Value.of(idx < 0 ? bp : bp.substring(0, idx));
+  }
+
+  /** See {@link #before} -- same rules, but returns everything after the match. */
+  @MushFunction(name = "after")
+  public static Value after(ExecutionContext ctx, List<Value> args) {
+    checkSubstringArity("AFTER", args);
+    if (args.isEmpty()) {
+      return Value.of("");
+    }
+    String bp = args.get(0).asString();
+    String mp = args.size() > 1 ? args.get(1).asString() : "";
+    if (mp.isEmpty()) {
+      mp = " ";
+    }
+    if (mp.equals(" ")) {
+      bp = bp.trim();
+    }
+    int idx = bp.indexOf(mp);
+    return Value.of(idx < 0 ? "" : bp.substring(idx + mp.length()));
+  }
+
+  /**
+   * {@code before}/{@code after} share the same {@code words}/{@code first}/{@code rest}-style
+   * arity shape {@link com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry}'s generic
+   * {@code minArgs}/{@code maxArgs} check can't express (zero args is a valid sentinel, one or two
+   * is normal, anything higher is {@code "1 OR 2 ARGUMENTS"}, oracle-verified via {@code
+   * before(a,b,c)}) -- see {@link #checkListSepArity}'s javadoc for the full explanation, which
+   * applies equally here.
+   */
+  private static void checkSubstringArity(String name, List<Value> args) {
+    if (args.size() > 2) {
+      throw new MushValueException("#-1 FUNCTION (" + name + ") EXPECTS 1 OR 2 ARGUMENTS");
+    }
+  }
+
+  /**
+   * {@code index(list, sep, first, len)}. Always exactly 4 args (oracle-verified {@code "#-1
+   * FUNCTION (INDEX) EXPECTS 4 ARGUMENTS"} for both too few and too many -- a clean {@code minArgs
+   * = maxArgs = 4} fit, unlike {@code before}/{@code after}). {@code sep}'s <b>first character</b>
+   * is used as-is with no length validation -- unlike every other separator-taking function here, a
+   * multi-char {@code sep} is <b>not</b> an error, it silently uses just the first character
+   * (oracle-verified {@code index(a|b|c,xy,1,1)}); an empty {@code sep} silently defaults to space.
+   * {@code first}/{@code len} are {@code atoi()}-lenient, like {@link #extract}; {@code first < 1},
+   * {@code len < 1}, or an empty {@code list} all return {@code ""}.
+   *
+   * <p>Positions into the <b>original, untrimmed</b> {@code list} -- there's no {@code
+   * trim_space_sep} step at all here, unlike every other list-splitting function so far. Walking to
+   * the start of element {@code first} uses <b>raw</b> {@code indexOf} occurrences of the separator
+   * char -- no compression/skip-ahead over consecutive occurrences, even when the separator is a
+   * space (a different, simpler walk than {@link #advanceToken}'s). From that offset, though,
+   * literal space characters are <b>unconditionally</b> skipped, regardless of what {@code sep} is
+   * -- oracle-verified {@code index(a|\ \ \ b,|,2,1)} is {@code "b"}, not the three raw spaces plus
+   * {@code "b"}. Walking forward {@code len} more separator occurrences to find the end boundary is
+   * the same raw walk; if all {@code len} are found, trailing spaces immediately before that cut
+   * point are also stripped (oracle-verified {@code index(a\ \ \ |b,|,1,1)} is {@code "a"}) --
+   * <b>but</b> if the walk runs off the end before finding {@code len} occurrences, the result is
+   * the raw, untrimmed remainder to the end of the string (asymmetric with the success case --
+   * confirmed by the C source's control flow, which only reaches the trailing-strip code inside the
+   * "found it" branch; don't "fix" this asymmetry, it's real).
+   */
+  @MushFunction(name = "index", minArgs = 4, maxArgs = 4)
+  public static Value index(ExecutionContext ctx, List<Value> args) {
+    String list = args.get(0).asString();
+    String sepArg = args.get(1).asString();
+    char sep = sepArg.isEmpty() ? ' ' : sepArg.charAt(0);
+    long first = args.get(2).atoi();
+    long len = args.get(3).atoi();
+    if (first < 1 || len < 1 || list.isEmpty()) {
+      return Value.of("");
+    }
+
+    int pos = 0;
+    long skip = first - 1;
+    while (skip > 0) {
+      int idx = list.indexOf(sep, pos);
+      if (idx < 0) {
+        return Value.of("");
+      }
+      pos = idx + 1;
+      skip--;
+    }
+    while (pos < list.length() && list.charAt(pos) == ' ') {
+      pos++;
+    }
+    if (pos >= list.length()) {
+      return Value.of("");
+    }
+
+    int startOffset = pos;
+    int p = startOffset;
+    long remaining = len;
+    int cutIndex = -1;
+    while (remaining > 0) {
+      int idx = list.indexOf(sep, p);
+      if (idx < 0) {
+        break;
+      }
+      remaining--;
+      if (remaining == 0) {
+        cutIndex = idx;
+      } else {
+        p = idx + 1;
+      }
+    }
+    if (remaining == 0) {
+      int end = cutIndex;
+      while (end > startOffset && list.charAt(end - 1) == ' ') {
+        end--;
+      }
+      return Value.of(list.substring(startOffset, end));
+    }
+    return Value.of(list.substring(startOffset));
+  }
 }
