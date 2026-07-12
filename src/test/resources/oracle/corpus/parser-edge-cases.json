@@ -124,6 +124,22 @@
     {
       "input": "switch(abc,X,y)",
       "expected": ""
+    },
+    {
+      "input": "add(%q(,2)",
+      "expected": "add(,2)"
+    },
+    {
+      "input": "add(%v(,2)",
+      "expected": "add(,2)"
+    },
+    {
+      "input": "add(%q),2)",
+      "expected": "#-1 TOO FEW ARGUMENTS,2)"
+    },
+    {
+      "input": "cat(a%q(b,c)",
+      "expected": "cat(ab,c)"
     }
   ]
 }

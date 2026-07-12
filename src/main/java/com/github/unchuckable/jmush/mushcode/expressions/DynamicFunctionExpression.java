@@ -14,39 +14,34 @@ import java.util.List;
  * interpreter's *output* buffer (eval.c's {@code oldp}/{@code hashfind} mechanism), so a
  * substitution can supply a function name; {@code MushcodeParser} normally resolves names
  * statically at parse time, and only builds this node when the accumulated name-candidate contains
- * a non-constant piece, deferring resolution -- and, since whether the parenthesized text is
- * "arguments" or literal text isn't decidable until the name resolves, deferring argument parsing
- * too -- to evaluation time.
+ * a non-constant piece. The argument text is comma-split and parsed once, at construction (that
+ * split is the same whichever name resolves); only name resolution -- and with it the
+ * invoke-vs-literal-fallback decision -- is deferred to evaluation time.
  *
  * <p>Known divergence from the oracle: when the resolved name doesn't match a function, real
  * TinyMUSH continues scanning the parenthesized text char-by-char with a *contaminated* accumulator
  * (carrying the failed name's text forward), so a nested, otherwise-valid function call inside
  * those "arguments" still won't fire (e.g. {@code unknownfunc(add(1,2),3)} stays fully literal on a
- * real server). This class instead parses+evaluates the arguments independently and rejoins them
- * with literal commas, so a nested valid call inside a failed dynamic name's arguments *will* fire
- * here.
+ * real server). This class instead evaluates the arguments independently and rejoins them with
+ * literal commas, so a nested valid call inside a failed dynamic name's arguments *will* fire here.
  */
 public class DynamicFunctionExpression implements Expression {
 
   private final MushcodeParser parser;
   private final Expression nameExpression;
-  private final String rawArguments;
-  private final EvalFlags flags;
+  private final List<Expression> arguments;
 
   public DynamicFunctionExpression(
       MushcodeParser parser, Expression nameExpression, String rawArguments, EvalFlags flags) {
     this.parser = parser;
     this.nameExpression = nameExpression;
-    this.rawArguments = rawArguments;
-    this.flags = flags;
+    this.arguments = parser.getParameters(rawArguments, 0, rawArguments.length(), flags);
   }
 
   @Override
   public Value evaluateExpression(ExecutionContext context) {
     String name = nameExpression.evaluateExpression(context).asString();
     MushFunctionHandler function = parser.getFunction(name);
-    List<Expression> arguments =
-        parser.getParameters(rawArguments, 0, rawArguments.length(), flags);
     if (function != null) {
       return function.execute(context, arguments);
     }
