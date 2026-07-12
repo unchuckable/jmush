@@ -230,6 +230,23 @@ public class FunctionRegistry {
               fn.apply(
                   ctx, args.get(0).evaluateExpression(ctx), args.get(1).evaluateExpression(ctx));
         }
+      case 3:
+        {
+          MushFunction3 fn =
+              adapt(
+                  lookup,
+                  method,
+                  MushFunction3.class,
+                  "apply",
+                  MethodType.methodType(
+                      Value.class, ExecutionContext.class, Value.class, Value.class, Value.class));
+          return (ctx, args) ->
+              fn.apply(
+                  ctx,
+                  args.get(0).evaluateExpression(ctx),
+                  args.get(1).evaluateExpression(ctx),
+                  args.get(2).evaluateExpression(ctx));
+        }
       default:
         throw new IllegalArgumentException(
             "No arity-specific MushFunctionN interface for "

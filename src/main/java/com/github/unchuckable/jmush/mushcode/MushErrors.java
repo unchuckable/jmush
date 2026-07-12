@@ -40,6 +40,19 @@ public final class MushErrors {
    */
   public static final String INVALID_GLOBAL_REGISTER = "#-1 INVALID GLOBAL REGISTER";
 
+  /**
+   * Best-effort placeholder, not yet oracle-verified: {@code mid()} on a negative {@code start} or
+   * {@code len}.
+   */
+  public static final String OUT_OF_RANGE = "#-1 OUT OF RANGE";
+
+  /**
+   * Best-effort placeholder, not yet oracle-verified: a fill/trim/separator character argument
+   * (e.g. {@code ljust()}/{@code rjust()}/{@code trim()}) longer than one character.
+   */
+  public static final String SEPARATOR_MUST_BE_ONE_CHARACTER =
+      "#-1 SEPARATOR MUST BE ONE CHARACTER";
+
   private MushErrors() {
     // static holder, do not instantiate
   }

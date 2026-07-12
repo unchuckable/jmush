@@ -23,6 +23,110 @@
     {
       "input": "strlen(hello world)",
       "expected": "11"
+    },
+    {
+      "input": "left(hello,3)",
+      "expected": "hel"
+    },
+    {
+      "input": "left(hello,0)",
+      "expected": ""
+    },
+    {
+      "input": "left(hello,-1)",
+      "expected": ""
+    },
+    {
+      "input": "left(hello,100)",
+      "expected": "hello"
+    },
+    {
+      "input": "left(,3)",
+      "expected": ""
+    },
+    {
+      "input": "right(hello,3)",
+      "expected": "llo"
+    },
+    {
+      "input": "right(hello,0)",
+      "expected": ""
+    },
+    {
+      "input": "right(hello,100)",
+      "expected": "hello"
+    },
+    {
+      "input": "mid(hello,1,3)",
+      "expected": "ell"
+    },
+    {
+      "input": "mid(hello,0,100)",
+      "expected": "hello"
+    },
+    {
+      "input": "mid(hello,10,1)",
+      "expected": ""
+    },
+    {
+      "input": "mid(hello,0,0)",
+      "expected": ""
+    },
+    {
+      "input": "mid(hello,-1,1)",
+      "expected": "#-1 OUT OF RANGE"
+    },
+    {
+      "input": "mid(hello,1,-1)",
+      "expected": "#-1 OUT OF RANGE"
+    },
+    {
+      "input": "trim(%b%bhello%b%b)",
+      "expected": "hello"
+    },
+    {
+      "input": "trim(%b%bhello%b%b,l)",
+      "expected": "hello  "
+    },
+    {
+      "input": "trim(%b%bhello%b%b,r)",
+      "expected": "  hello"
+    },
+    {
+      "input": "trim(xxhelloxx,both,x)",
+      "expected": "hello"
+    },
+    {
+      "input": "trim(xhellox,q,x)",
+      "expected": "hello"
+    },
+    {
+      "input": "ljust(hi,5)",
+      "expected": "hi   "
+    },
+    {
+      "input": "ljust(hi,5,x)",
+      "expected": "hixxx"
+    },
+    {
+      "input": "ljust(hello,3)",
+      "expected": "hello"
+    },
+    {
+      "input": "ljust(hi,5,xy)",
+      "expected": "#-1 SEPARATOR MUST BE ONE CHARACTER"
+    },
+    {
+      "input": "rjust(hi,5)",
+      "expected": "   hi"
+    },
+    {
+      "input": "rjust(hi,5,x)",
+      "expected": "xxxhi"
+    },
+    {
+      "input": "rjust(hello,3)",
+      "expected": "hello"
     }
   ]
 }
