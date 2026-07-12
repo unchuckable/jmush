@@ -23,9 +23,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reflects over an explicit, hand-maintained list of provider classes and builds the {@code
- * Map<String, MushFunctionHandler>} the parser expects, one entry per
- * {@code @MushFunction}-annotated method. Adapters are built once here via {@code
+ * Reflects over an explicit, hand-maintained list of provider classes and builds a lookup of {@code
+ * name -> MushFunctionHandler}, one entry per {@code @MushFunction}-annotated method. {@link
+ * MushcodeParser} holds a reference to a {@code FunctionRegistry} instance (via {@link #build()})
+ * rather than the raw {@code Map} directly -- separates "how function names resolve" from "how
+ * mushcode gets scanned," and lets a future caller that only needs name resolution (not parsing)
+ * depend on this type instead of the whole parser. Adapters are built once here via {@code
  * MethodHandle}/{@code LambdaMetafactory} (not per-call reflective {@code Method.invoke}), so the
  * natural-parameter style costs nothing at runtime once JIT-warmed -- the same mechanism the JVM
  * uses for ordinary lambdas/method references. Generic arg-count validation and {@link
@@ -62,7 +65,22 @@ public class FunctionRegistry {
     Value execute(ExecutionContext context, List<Value> parameters);
   }
 
-  public static Map<String, MushFunctionHandler> build() {
+  private final Map<String, MushFunctionHandler> handlers;
+
+  private FunctionRegistry(Map<String, MushFunctionHandler> handlers) {
+    this.handlers = handlers;
+  }
+
+  /**
+   * Wraps an arbitrary, already-built {@code name -> MushFunctionHandler} map directly, bypassing
+   * the {@code @MushFunction} reflection pipeline entirely -- for tests that want to inject a stub
+   * handler without a real provider class.
+   */
+  public static FunctionRegistry of(Map<String, MushFunctionHandler> handlers) {
+    return new FunctionRegistry(new HashMap<>(handlers));
+  }
+
+  public static FunctionRegistry build() {
     Map<String, MushFunctionHandler> registry = new HashMap<>();
     MethodHandles.Lookup lookup = MethodHandles.lookup();
     for (Class<?> providerClass : PROVIDER_CLASSES) {
@@ -74,7 +92,11 @@ public class FunctionRegistry {
         registry.put(annotation.name().toLowerCase(), buildHandler(lookup, method, annotation));
       }
     }
-    return registry;
+    return new FunctionRegistry(registry);
+  }
+
+  public MushFunctionHandler getFunction(String name) {
+    return handlers.get(name.toLowerCase());
   }
 
   private static MushFunctionHandler buildHandler(
@@ -243,9 +265,5 @@ public class FunctionRegistry {
     } catch (Throwable t) {
       throw new IllegalStateException("Failed to adapt " + method, t);
     }
-  }
-
-  private FunctionRegistry() {
-    // static factory, do not instantiate
   }
 }

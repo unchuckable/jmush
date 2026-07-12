@@ -7,18 +7,18 @@ import com.github.unchuckable.jmush.mushcode.expressions.DynamicFunctionExpressi
 import com.github.unchuckable.jmush.mushcode.expressions.FunctionExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.RegisterExpression;
 import com.github.unchuckable.jmush.mushcode.expressions.UppercaseFirstExpression;
+import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
 import com.github.unchuckable.jmush.util.StringUtils;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class MushcodeParser {
 
-  private final Map<String, MushFunctionHandler> functionMap;
+  private final FunctionRegistry functionRegistry;
 
-  public MushcodeParser(Map<String, MushFunctionHandler> functionMap) {
-    this.functionMap = functionMap;
+  public MushcodeParser(FunctionRegistry functionRegistry) {
+    this.functionRegistry = functionRegistry;
   }
 
   public Expression parse(String string) {
@@ -27,10 +27,6 @@ public class MushcodeParser {
 
   public Expression parse(String string, EvalFlags flags) {
     return new ParseRun(string, flags).run();
-  }
-
-  public MushFunctionHandler getFunction(String name) {
-    return this.functionMap.get(name.toLowerCase());
   }
 
   public List<Expression> getParameters(
@@ -219,7 +215,7 @@ public class MushcodeParser {
         for (Expression piece : pendingName) {
           nameBuilder.append(piece.evaluateExpression(null).asString());
         }
-        MushFunctionHandler function = getFunction(nameBuilder.toString());
+        MushFunctionHandler function = functionRegistry.getFunction(nameBuilder.toString());
         if (function == null) {
           builder.append('(');
           functionCheckAvailable = false;
@@ -237,10 +233,9 @@ public class MushcodeParser {
         builder.setLength(0);
         Expression nameExpression =
             pendingName.size() == 1 ? pendingName.get(0) : new ConcatExpression(pendingName);
-        String rawArguments = string.substring(index + 1, endIndex);
+        List<Expression> arguments = getParameters(string, index + 1, endIndex, flags);
         finishedExpressions.add(
-            new DynamicFunctionExpression(
-                MushcodeParser.this, nameExpression, rawArguments, flags));
+            new DynamicFunctionExpression(functionRegistry, nameExpression, arguments));
       }
       index = endIndex;
       nameBoundary = finishedExpressions.size();

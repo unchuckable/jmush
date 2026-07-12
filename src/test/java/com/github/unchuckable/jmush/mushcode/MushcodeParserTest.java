@@ -3,6 +3,7 @@ package com.github.unchuckable.jmush.mushcode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.github.unchuckable.jmush.model.MushObject;
+import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
 import java.util.Collections;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testParser() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
@@ -23,7 +24,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testInvokerNameSubstitution() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
 
@@ -36,7 +37,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testRegisterSubstitution() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
     ctx.getRegisters()[0] = Value.of("hello");
@@ -49,7 +50,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testVariableAttributeSubstitution() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     MushObject caller = new MushObject().withName("vexy").withDbRefString("#1");
     caller.setAttribute("VA", "hello");
     ExecutionContext ctx = new ExecutionContext().withCaller(caller);
@@ -70,7 +71,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testRegisterSubstitutionSwallowsInvalidChar() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("vexy").withDbRefString("#1"));
 
@@ -82,7 +83,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testForcedEvaluation() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
@@ -97,10 +98,11 @@ public class MushcodeParserTest {
   public void testFunctionCallFollowedByTrailingText() {
     MushcodeParser parser =
         new MushcodeParser(
-            Collections.singletonMap(
-                "f",
-                (ctx, params) ->
-                    Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")")));
+            FunctionRegistry.of(
+                Collections.singletonMap(
+                    "f",
+                    (ctx, params) ->
+                        Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")"))));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
@@ -119,10 +121,11 @@ public class MushcodeParserTest {
   public void testLiteralGrouping() {
     MushcodeParser parser =
         new MushcodeParser(
-            Collections.singletonMap(
-                "f",
-                (ctx, params) ->
-                    Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")")));
+            FunctionRegistry.of(
+                Collections.singletonMap(
+                    "f",
+                    (ctx, params) ->
+                        Value.of("F(" + params.get(0).evaluateExpression(ctx).asString() + ")"))));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 
@@ -148,7 +151,7 @@ public class MushcodeParserTest {
 
   @Test
   public void testLeadingAndTrailingSpaceStripping() {
-    MushcodeParser parser = new MushcodeParser(Collections.emptyMap());
+    MushcodeParser parser = new MushcodeParser(FunctionRegistry.of(Collections.emptyMap()));
     ExecutionContext ctx =
         new ExecutionContext().withCaller(new MushObject().withName("Vexy").withDbRefString("#1"));
 

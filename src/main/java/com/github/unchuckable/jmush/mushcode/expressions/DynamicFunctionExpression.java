@@ -1,10 +1,9 @@
 package com.github.unchuckable.jmush.mushcode.expressions;
 
-import com.github.unchuckable.jmush.mushcode.EvalFlags;
 import com.github.unchuckable.jmush.mushcode.ExecutionContext;
 import com.github.unchuckable.jmush.mushcode.Expression;
-import com.github.unchuckable.jmush.mushcode.MushcodeParser;
 import com.github.unchuckable.jmush.mushcode.Value;
+import com.github.unchuckable.jmush.mushcode.functions.FunctionRegistry;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunctionHandler;
 import java.util.List;
 
@@ -14,9 +13,10 @@ import java.util.List;
  * interpreter's *output* buffer (eval.c's {@code oldp}/{@code hashfind} mechanism), so a
  * substitution can supply a function name; {@code MushcodeParser} normally resolves names
  * statically at parse time, and only builds this node when the accumulated name-candidate contains
- * a non-constant piece. The argument text is comma-split and parsed once, at construction (that
- * split is the same whichever name resolves); only name resolution -- and with it the
- * invoke-vs-literal-fallback decision -- is deferred to evaluation time.
+ * a non-constant piece. Arguments are parsed by the caller ({@code
+ * MushcodeParser.handleFunctionCall}, the same {@code getParameters} call the static path uses) and
+ * handed over pre-parsed -- the comma-split is the same whichever name resolves, so only name
+ * resolution, and with it the invoke-vs-literal-fallback decision, is deferred to evaluation time.
  *
  * <p>Known divergence from the oracle: when the resolved name doesn't match a function, real
  * TinyMUSH continues scanning the parenthesized text char-by-char with a *contaminated* accumulator
@@ -27,21 +27,21 @@ import java.util.List;
  */
 public class DynamicFunctionExpression implements Expression {
 
-  private final MushcodeParser parser;
+  private final FunctionRegistry functionRegistry;
   private final Expression nameExpression;
   private final List<Expression> arguments;
 
   public DynamicFunctionExpression(
-      MushcodeParser parser, Expression nameExpression, String rawArguments, EvalFlags flags) {
-    this.parser = parser;
+      FunctionRegistry functionRegistry, Expression nameExpression, List<Expression> arguments) {
+    this.functionRegistry = functionRegistry;
     this.nameExpression = nameExpression;
-    this.arguments = parser.getParameters(rawArguments, 0, rawArguments.length(), flags);
+    this.arguments = arguments;
   }
 
   @Override
   public Value evaluateExpression(ExecutionContext context) {
     String name = nameExpression.evaluateExpression(context).asString();
-    MushFunctionHandler function = parser.getFunction(name);
+    MushFunctionHandler function = functionRegistry.getFunction(name);
     if (function != null) {
       return function.execute(context, arguments);
     }
