@@ -1,0 +1,133 @@
+{
+  "notes": "match(list, pattern[, sep]): returns the 1-based index of the first element of list (split on sep, default space, same split rule as words()/first()) wildcard-matching pattern, or 0 if none match. Unlike words/first/rest, an empty (post-trim) list is NOT zero elements -- functions.c\u0027s matching loop is a do/while that always runs at least once, so it still checks a single empty-string token (match(,*) is 1, not 0). extract(list, first, len[, sep]): first/len are atoi()-truncated; first\u003c1 or len\u003c1 silently returns empty. Otherwise returns the len elements starting at the first one (1-based), clamped (not an error) if fewer than len elements remain. Critically NOT a slice of a full split rejoined -- functions.c\u0027s fun_extract only uses next_token (never split_token) to locate offsets, and next_token never mutates the buffer, so the result is a raw substring preserving every interior separator run verbatim, regardless of sep. Ordinary typed spaces never reveal this (general-argument-evaluator pre-compression collapses them first), but backslash-escaped spaces do: extract(a\\ \\ b\\ \\ \\ c,1,3) keeps both interior multi-space runs untouched, unlike rest() which only preserves runs after the first collapsed boundary.",
+  "cases": [
+    {
+      "input": "match(a b c,b)",
+      "expected": "2"
+    },
+    {
+      "input": "match(a b c,x)",
+      "expected": "0"
+    },
+    {
+      "input": "match(a-b-c,b,-)",
+      "expected": "2"
+    },
+    {
+      "input": "match(apple banana cherry,ba*)",
+      "expected": "2"
+    },
+    {
+      "input": "match(a,a)",
+      "expected": "1"
+    },
+    {
+      "input": "match(a,x)",
+      "expected": "0"
+    },
+    {
+      "input": "match(,x)",
+      "expected": "0"
+    },
+    {
+      "input": "match(,*)",
+      "expected": "1"
+    },
+    {
+      "input": "match(a-b-,x,-)",
+      "expected": "0"
+    },
+    {
+      "input": "match(a-b-,*,-)",
+      "expected": "1"
+    },
+    {
+      "input": "match(a b c,.)",
+      "expected": "0"
+    },
+    {
+      "input": "match(a)",
+      "expected": "#-1 FUNCTION (MATCH) EXPECTS 2 OR 3 ARGUMENTS"
+    },
+    {
+      "input": "match()",
+      "expected": "#-1 FUNCTION (MATCH) EXPECTS 2 OR 3 ARGUMENTS"
+    },
+    {
+      "input": "match(a,b,c,d)",
+      "expected": "#-1 FUNCTION (MATCH) EXPECTS 2 OR 3 ARGUMENTS"
+    },
+    {
+      "input": "extract(foo bar baz,1,2)",
+      "expected": "foo bar"
+    },
+    {
+      "input": "extract(foo bar baz,2,1)",
+      "expected": "bar"
+    },
+    {
+      "input": "extract(foo bar baz,2,2)",
+      "expected": "bar baz"
+    },
+    {
+      "input": "extract(a\\ \\ b\\ \\ \\ c,1,3)",
+      "expected": "a  b   c"
+    },
+    {
+      "input": "extract(a--b,1,2,-)",
+      "expected": "a-"
+    },
+    {
+      "input": "extract(a b c,5,1)",
+      "expected": ""
+    },
+    {
+      "input": "extract(a b c,0,1)",
+      "expected": ""
+    },
+    {
+      "input": "extract(a b c,1,0)",
+      "expected": ""
+    },
+    {
+      "input": "extract(a b c,2,5)",
+      "expected": "b c"
+    },
+    {
+      "input": "extract(,1,1)",
+      "expected": ""
+    },
+    {
+      "input": "extract(a b c,1,1,x)",
+      "expected": "a b c"
+    },
+    {
+      "input": "extract(a-b-,3,1,-)",
+      "expected": ""
+    },
+    {
+      "input": "extract(a,1)",
+      "expected": "#-1 FUNCTION (EXTRACT) EXPECTS 3 OR 4 ARGUMENTS"
+    },
+    {
+      "input": "extract()",
+      "expected": "#-1 FUNCTION (EXTRACT) EXPECTS 3 OR 4 ARGUMENTS"
+    },
+    {
+      "input": "extract(a b c,1,2,3,4)",
+      "expected": "#-1 FUNCTION (EXTRACT) EXPECTS 3 OR 4 ARGUMENTS"
+    },
+    {
+      "input": "extract(a.b.c,1,2,.)",
+      "expected": "a.b"
+    },
+    {
+      "input": "match(add(1,2) add(3,4) add(5,6),7)",
+      "expected": "0"
+    },
+    {
+      "input": "extract(add(1,2) add(3,4) add(5,6),2,1)",
+      "expected": "add(3,4)"
+    }
+  ]
+}

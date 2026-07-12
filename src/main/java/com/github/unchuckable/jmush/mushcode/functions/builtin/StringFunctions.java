@@ -5,6 +5,7 @@ import com.github.unchuckable.jmush.mushcode.MushErrors;
 import com.github.unchuckable.jmush.mushcode.MushValueException;
 import com.github.unchuckable.jmush.mushcode.Value;
 import com.github.unchuckable.jmush.mushcode.functions.MushFunction;
+import com.github.unchuckable.jmush.util.WildcardMatcher;
 import java.util.List;
 
 public class StringFunctions {
@@ -290,5 +291,127 @@ public class StringFunctions {
       }
     }
     return new String[] {first, trimmed.substring(remainderStart)};
+  }
+
+  /**
+   * {@code match(list, pattern[, sep])}. Splits {@code list} on {@code sep} (default space, see
+   * {@link #parseFillChar}) the same way {@link #words}/{@link #first} do (reusing {@link
+   * ControlFunctions#splitCompressed}/{@link ControlFunctions#splitLiteral} -- functions.c's {@code
+   * fun_match} calls {@code split_token} per element, which, unlike {@code next_token}, does
+   * collapse each token cleanly), then returns the 1-based index of the first element
+   * wildcard-matching {@code pattern} (see {@link WildcardMatcher#matches}, same matcher {@code
+   * switch()} uses), or {@code "0"} if none match.
+   *
+   * <p>Unlike {@code words}/{@code first}/{@code rest}, an empty (post-trim) {@code list} is
+   * <b>not</b> zero elements to check -- functions.c's matching loop is a {@code do}/{@code while}
+   * that always runs at least once, so an empty list still gets checked as a single empty-string
+   * token (oracle-verified: {@code match(,*)} is {@code "1"}, not {@code "0"}, since {@code *}
+   * matches the empty string).
+   */
+  @MushFunction(name = "match", minArgs = 2, maxArgs = 3)
+  public static Value match(ExecutionContext ctx, List<Value> args) {
+    String list = args.get(0).asString();
+    String pattern = args.get(1).asString();
+    char sep = args.size() > 2 ? parseFillChar(args.get(2), ' ') : ' ';
+    String[] elements =
+        sep == ' '
+            ? ControlFunctions.splitCompressed(list)
+            : ControlFunctions.splitLiteral(list, sep);
+    if (elements.length == 0) {
+      elements = new String[] {""};
+    }
+    for (int i = 0; i < elements.length; i++) {
+      if (WildcardMatcher.matches(pattern, elements[i])) {
+        return Value.ofInt(i + 1);
+      }
+    }
+    return Value.of("0");
+  }
+
+  /**
+   * {@code extract(list, first, len[, sep])}. {@code first}/{@code len} are {@code
+   * atoi()}-truncated (lenient, like {@link #left}/{@link #right}/{@link #mid}); {@code first < 1}
+   * or {@code len < 1} silently returns {@code ""} (not an error). Otherwise returns the {@code
+   * len} elements of {@code list} (split on {@code sep}, default space) starting at the {@code
+   * first} one (1-based) -- clamped, not an error, if fewer than {@code len} elements remain
+   * (oracle-verified: {@code extract(a b c,2,5)} is {@code "b c"}).
+   *
+   * <p><b>Not</b> a slice of {@link ControlFunctions#splitCompressed}/{@link
+   * ControlFunctions#splitLiteral} rejoined -- functions.c's {@code fun_extract} only ever calls
+   * {@code next_token} (never {@code split_token}) while walking to the start/end of the requested
+   * range, and {@code next_token} never mutates the buffer it walks; it's used purely to *locate*
+   * offsets. So the result is a raw substring of the (leading/trailing-trimmed) list from the start
+   * of element {@code first} through just before element {@code first + len}, with everything in
+   * between -- including interior multi-separator runs -- preserved verbatim, regardless of {@code
+   * sep}. Oracle-verified the same way {@link #rest}'s equivalent quirk was: ordinary typed-in
+   * multiple spaces never surface this (general-argument-evaluator pre-compression collapses them
+   * first), but backslash-escaped spaces do -- {@code extract(a\ \ b\ \ \ c,1,3)} returns both
+   * interior runs untouched, not collapsed. Don't "simplify" this back into a split-and-rejoin
+   * implementation. See {@link #advanceToken}.
+   */
+  @MushFunction(name = "extract", minArgs = 3, maxArgs = 4)
+  public static Value extract(ExecutionContext ctx, List<Value> args) {
+    String list = args.get(0).asString();
+    long first = args.get(1).atoi();
+    long len = args.get(2).atoi();
+    char sep = args.size() > 3 ? parseFillChar(args.get(3), ' ') : ' ';
+    if (first < 1 || len < 1) {
+      return Value.of("");
+    }
+    String trimmed = sep == ' ' ? list.trim() : list;
+    if (trimmed.isEmpty()) {
+      return Value.of("");
+    }
+    int offset = 0;
+    for (long i = 1; i < first; i++) {
+      offset = advanceToken(trimmed, offset, sep);
+      if (offset < 0) {
+        return Value.of("");
+      }
+    }
+    if (offset >= trimmed.length()) {
+      return Value.of("");
+    }
+    int startOffset = offset;
+    int cur = offset;
+    long remaining = len - 1;
+    while (remaining > 0) {
+      int next = advanceToken(trimmed, cur, sep);
+      if (next < 0) {
+        break;
+      }
+      cur = next;
+      remaining--;
+    }
+    int endOffset;
+    if (remaining == 0) {
+      int sepIndex = trimmed.indexOf(sep, cur);
+      endOffset = sepIndex < 0 ? trimmed.length() : sepIndex;
+    } else {
+      endOffset = trimmed.length();
+    }
+    return Value.of(trimmed.substring(startOffset, endOffset));
+  }
+
+  /**
+   * Mirrors functions.c's {@code next_token} exactly, but as an index into {@code s} rather than a
+   * pointer: finds {@code sep} at or after {@code pos}, and returns one past it -- skipping any
+   * further consecutive {@code sep} chars from there too, but only for the space separator (like
+   * {@code next_token}, and unlike {@code split_token}/{@link #splitFirst}, never writes into
+   * {@code s} -- it only locates a boundary). Returns {@code -1} if {@code sep} doesn't occur at or
+   * after {@code pos} (no more tokens).
+   */
+  private static int advanceToken(String s, int pos, char sep) {
+    int idx = s.indexOf(sep, pos);
+    if (idx < 0) {
+      return -1;
+    }
+    int next = idx + 1;
+    if (sep == ' ') {
+      while (next < s.length() && s.charAt(next) == ' ') {
+        next++;
+      }
+    }
+    return next;
   }
 }
